@@ -389,7 +389,7 @@ st.sidebar.markdown(
     f"""
 <div class="env-sidebar-card">
   
-    <div style="color:#cbd5e1; margin-bottom:6px; line-height:1.3;">{env_data['env_desc']}</div>
+    
     <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.75rem;">
         <span>環境評分: <strong style="color:#38bdf8;">{env_data['score']}/6</strong></span>
         <span>均線結構: <strong>{'多頭' if env_data['cond1'] else '空頭'}</strong></span>
