@@ -389,7 +389,7 @@ st.sidebar.markdown(
     f"""
 <div class="env-sidebar-card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span class="card-header-badge" style="margin:0;">MODULE 02</span>
+       
         <span class="env-status-badge {env_data['env_style']}">{env_data['env_light']}</span>
     </div>
     <div style="color:#cbd5e1; margin-bottom:6px; line-height:1.3;">{env_data['env_desc']}</div>
