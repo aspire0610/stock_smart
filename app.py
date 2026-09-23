@@ -1,4 +1,4 @@
-# ----------------- app_18.py (完整專業終端升級版 - 全代號支援與分頁 RWD 優化版) -----------------
+# ----------------- 完整專業終端升級版 - 全代號支援與分頁 RWD 優化版 (已修復 NaN 轉整數與 AI 同步問題) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -120,24 +120,27 @@ def _to_float(value, default=0.0):
         value = str(value).strip().replace(",", "")
         if value in ("", "-", "--", "null", "None", "nan", "NaN"):
             return default
-        return float(value)
+        res = float(value)
+        if np.isnan(res) or np.isinf(res):
+            return default
+        return res
     except (TypeError, ValueError):
         return default
 
 
 def _make_quote(curr, change=None, pct=None, ref=None, source="", quote_time=""):
-    curr = _to_float(curr)
-    ref = _to_float(ref)
+    curr = _to_float(curr, 0.0)
+    ref = _to_float(ref, 0.0)
 
     if change is None:
         change = curr - ref if curr > 0 and ref > 0 else 0.0
     else:
-        change = _to_float(change)
+        change = _to_float(change, 0.0)
 
     if pct is None:
         pct = (change / ref * 100.0) if ref > 0 else 0.0
     else:
-        pct = _to_float(pct)
+        pct = _to_float(pct, 0.0)
 
     return {
         "curr": round(curr, 2),
@@ -246,7 +249,6 @@ def fetch_realtime_index_and_futures():
 def fetch_realtime_stock_quote(symbol):
     symbol = str(symbol).strip().upper()
     
-    # 建立所有可能的代號組合（支援台股上市 .TW、上櫃 .TWO、美股、原代號等）
     if symbol.isdigit():
         tickers = [f"{symbol}.TW", f"{symbol}.TWO", symbol]
     elif "." in symbol:
@@ -259,13 +261,13 @@ def fetch_realtime_stock_quote(symbol):
             stock = yf.Ticker(t)
             hist = stock.history(period="5d")
             if not hist.empty:
-                curr = float(hist["Close"].iloc[-1])
-                prev = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
+                curr = _to_float(hist["Close"].iloc[-1])
+                prev = _to_float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
                 change = round(curr - prev, 2)
                 pct = round((change / prev) * 100, 2) if prev > 0 else 0.0
-                vol = int(hist["Volume"].iloc[-1])
-                high = float(hist["High"].iloc[-1])
-                low = float(hist["Low"].iloc[-1])
+                vol = int(_to_float(hist["Volume"].iloc[-1]))
+                high = _to_float(hist["High"].iloc[-1], curr)
+                low = _to_float(hist["Low"].iloc[-1], curr)
                 if curr > 0:
                     return {
                         "curr": round(curr, 2),
@@ -308,10 +310,10 @@ def fetch_taiex_market_env():
         twii = yf.Ticker("^TWII")
         hist = twii.history(period="6m")
         if not hist.empty and len(hist) >= 60:
-            ma20 = float(hist["Close"].rolling(20).mean().iloc[-1])
-            ma60 = float(hist["Close"].rolling(60).mean().iloc[-1])
-            vol_curr = int(hist["Volume"].iloc[-1])
-            vol_ma5 = float(hist["Volume"].rolling(5).mean().iloc[-1])
+            ma20 = _to_float(hist["Close"].rolling(20).mean().iloc[-1])
+            ma60 = _to_float(hist["Close"].rolling(60).mean().iloc[-1])
+            vol_curr = int(_to_float(hist["Volume"].iloc[-1]))
+            vol_ma5 = _to_float(hist["Volume"].rolling(5).mean().iloc[-1])
 
             env_res["ma20"] = ma20
             env_res["ma60"] = ma60
@@ -460,7 +462,10 @@ def fetch_accurate_stock_data(symbol):
             stock = yf.Ticker(t)
             hist = stock.history(period="1y")
             if not hist.empty and len(hist) >= 5:
-                return hist[["Open", "High", "Low", "Close", "Volume"]], f"{t} (Yahoo Finance)"
+                # 確保清洗 NaN 避免後續運算異常
+                hist = hist.dropna(subset=["Close"])
+                if not hist.empty:
+                    return hist[["Open", "High", "Low", "Close", "Volume"]], f"{t} (Yahoo Finance)"
         except Exception:
             continue
 
@@ -490,43 +495,43 @@ if realtime_q.get("success", False) and realtime_q["curr"] > 0:
     change_val = realtime_q["change"]
     change_pct = realtime_q["pct"]
     vol = realtime_q["volume"]
-    high_p = max(float(hist_df["High"].max()), realtime_q["high"])
-    low_p = min(float(hist_df["Low"].min()), realtime_q["low"])
+    high_p = max(_to_float(hist_df["High"].max(), curr_p), realtime_q["high"])
+    low_p = min(_to_float(hist_df["Low"].min(), curr_p), realtime_q["low"])
     matched_ticker = f"{input_symbol} · {realtime_q['source']}"
 else:
-    curr_p = float(hist_df["Close"].iloc[-1])
-    prev_p = float(hist_df["Close"].iloc[-2]) if len(hist_df) >= 2 else curr_p
+    curr_p = _to_float(hist_df["Close"].iloc[-1], 150.0)
+    prev_p = _to_float(hist_df["Close"].iloc[-2], curr_p) if len(hist_df) >= 2 else curr_p
     change_val = round(curr_p - prev_p, 2)
     change_pct = round((change_val / prev_p) * 100, 2) if prev_p > 0 else 0.0
-    vol = int(hist_df["Volume"].iloc[-1])
-    high_p = float(hist_df["High"].max())
-    low_p = float(hist_df["Low"].min())
+    vol = int(_to_float(hist_df["Volume"].iloc[-1], 10000))
+    high_p = _to_float(hist_df["High"].max(), curr_p)
+    low_p = _to_float(hist_df["Low"].min(), curr_p)
 
 
 def evaluate_stock_screening(df, curr_price, min_vol_limit, high_days, atr_n, market_score):
     df_calc = df.copy()
-    vol_shares = df_calc["Volume"].iloc[-1]
+    vol_shares = _to_float(df_calc["Volume"].iloc[-1], 10000)
     vol_lots = vol_shares / 1000.0 if vol_shares > 10000 else float(vol_shares)
-    vol_ma5 = df_calc["Volume"].rolling(5).mean().iloc[-1]
+    vol_ma5 = _to_float(df_calc["Volume"].rolling(5).mean().iloc[-1], vol_lots)
     vol_ma5_lots = vol_ma5 / 1000.0 if vol_ma5 > 10000 else float(vol_ma5)
 
     cond_liquidity = vol_lots >= min_vol_limit
     cond_vol_surge = vol_lots >= (vol_ma5_lots * 1.2)
 
-    ma20 = df_calc["Close"].rolling(20).mean().iloc[-1] if len(df_calc) >= 20 else curr_price
-    ma60 = df_calc["Close"].rolling(60).mean().iloc[-1] if len(df_calc) >= 60 else curr_price
-    ma120 = df_calc["Close"].rolling(120).mean().iloc[-1] if len(df_calc) >= 120 else curr_price
+    ma20 = _to_float(df_calc["Close"].rolling(20).mean().iloc[-1], curr_price) if len(df_calc) >= 20 else curr_price
+    ma60 = _to_float(df_calc["Close"].rolling(60).mean().iloc[-1], curr_price) if len(df_calc) >= 60 else curr_price
+    ma120 = _to_float(df_calc["Close"].rolling(120).mean().iloc[-1], curr_price) if len(df_calc) >= 120 else curr_price
 
     cond_gt_ma20 = curr_price > ma20
     cond_gt_ma60 = curr_price > ma60
     cond_gt_ma120 = curr_price > ma120
     cond_trend_bull = (curr_price > ma20) and (ma20 > ma60) and (ma60 > ma120)
 
-    past_high = df_calc["High"].iloc[-(high_days + 1) : -1].max()
+    past_high = _to_float(df_calc["High"].iloc[-(high_days + 1) : -1].max(), curr_price * 1.1)
     cond_new_high = curr_price >= past_high
 
-    resistance_20 = df_calc["High"].iloc[-21:-1].max()
-    support_20 = df_calc["Low"].iloc[-21:-1].min()
+    resistance_20 = _to_float(df_calc["High"].iloc[-21:-1].max(), curr_price * 1.05)
+    support_20 = _to_float(df_calc["Low"].iloc[-21:-1].min(), curr_price * 0.95)
 
     cond_break_res = curr_price > resistance_20
     cond_below_sup = curr_price < support_20
@@ -535,15 +540,15 @@ def evaluate_stock_screening(df, curr_price, min_vol_limit, high_days, atr_n, ma
     high_close = np.abs(df_calc["High"] - df_calc["Close"].shift())
     low_close = np.abs(df_calc["Low"] - df_calc["Close"].shift())
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    atr = tr.rolling(atr_n).mean().iloc[-1]
-    atr_pct = (atr / curr_price) * 100 if curr_price > 0 else 0
+    atr = _to_float(tr.rolling(atr_n).mean().iloc[-1], curr_price * 0.02)
+    atr_pct = (atr / curr_price) * 100 if curr_price > 0 else 0.0
 
     delta = df_calc["Close"].diff()
     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
     rs = gain / loss.replace(0, np.nan)
     rsi_series = 100 - (100 / (1 + rs))
-    rsi_val = float(rsi_series.iloc[-1]) if not np.isnan(rsi_series.iloc[-1]) else 58.5
+    rsi_val = _to_float(rsi_series.iloc[-1], 58.5)
 
     return {
         "vol_lots": vol_lots,
@@ -580,11 +585,11 @@ def run_mlp_tracker(df):
     vol_ma5 = df["Volume"].rolling(5).mean().replace(0, np.nan)
     vol_ratio = (df["Volume"] / vol_ma5).fillna(1.0).values[-20:]
 
-    f1 = float(np.mean(returns[-5:]) * 10)
-    f2 = float(vol_ratio[-1])
-    high_20 = float(df["High"].iloc[-20:].max())
-    low_20 = float(df["Low"].iloc[-20:].min())
-    curr_c = float(df["Close"].iloc[-1])
+    f1 = float(np.mean(returns[-5:]) * 10) if len(returns) >= 5 else 0.0
+    f2 = float(vol_ratio[-1]) if len(vol_ratio) > 0 else 1.0
+    high_20 = _to_float(df["High"].iloc[-20:].max(), 100.0)
+    low_20 = _to_float(df["Low"].iloc[-20:].min(), 50.0)
+    curr_c = _to_float(df["Close"].iloc[-1], 75.0)
     f3 = (curr_c - low_20) / (high_20 - low_20) if high_20 != low_20 else 0.5
 
     mlp_score = float(np.clip(50.0 + (f1 * 20) + ((f2 - 1.0) * 15) + ((f3 - 0.5) * 20), 20.0, 95.0))
@@ -612,10 +617,10 @@ mlp_res = run_mlp_tracker(hist_df)
 
 
 def run_enhanced_ai_decision(df, curr_price):
-    ma5 = df["Close"].rolling(5).mean().iloc[-1]
-    ma20 = df["Close"].rolling(20).mean().iloc[-1]
-    vol_ma5 = df["Volume"].rolling(5).mean().iloc[-1]
-    curr_vol = df["Volume"].iloc[-1]
+    ma5 = _to_float(df["Close"].rolling(5).mean().iloc[-1], curr_price)
+    ma20 = _to_float(df["Close"].rolling(20).mean().iloc[-1], curr_price)
+    vol_ma5 = _to_float(df["Volume"].rolling(5).mean().iloc[-1], 10000.0)
+    curr_vol = _to_float(df["Volume"].iloc[-1], 10000.0)
 
     support_low = round(curr_price * 0.95, 1)
     resistance_high = round(curr_price * 1.05, 1)
@@ -654,8 +659,8 @@ ai_dec = run_enhanced_ai_decision(hist_df, curr_p)
 
 def run_monte_carlo(current_price, df, days=10, sims=1000):
     returns = df["Close"].pct_change().dropna()
-    mu = returns.mean()
-    sigma = returns.std()
+    mu = float(returns.mean()) if not returns.empty else 0.001
+    sigma = float(returns.std()) if not returns.empty else 0.018
     if np.isnan(sigma) or sigma == 0:
         sigma = 0.018
 
@@ -687,8 +692,8 @@ mc_res = run_monte_carlo(curr_p, hist_df, days=forecast_days)
 
 
 def compute_ai_probability_and_advice(df, curr_price, mlp_score, market_score, mc_prob_up):
-    ma20 = df["Close"].rolling(20).mean().iloc[-1]
-    ma60 = df["Close"].rolling(60).mean().iloc[-1]
+    ma20 = _to_float(df["Close"].rolling(20).mean().iloc[-1], curr_price)
+    ma60 = _to_float(df["Close"].rolling(60).mean().iloc[-1], curr_price)
 
     tech_score = 50
     if curr_price > ma20: tech_score += 15
@@ -739,7 +744,7 @@ ai_prob = compute_ai_probability_and_advice(
 # ----------------- 5. 量化控制模組 UI 排版 (導入分頁優化 RWD) -----------------
 # ==============================================================================
 
-# 頂部固定摘要區 (不隨分頁切換消失，讓資訊一目了然)
+# 頂部固定摘要區
 price_class = "up-red" if change_val >= 0 else "down-green"
 sign_symbol = "+" if change_val >= 0 else ""
 
@@ -776,7 +781,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 使用 Streamlit 分頁標籤 (Tabs) 最佳化行動裝置排版，將 18 個模組分類管理，絕不誤刪功能
+# 使用 Streamlit 分頁標籤 (Tabs)
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🤖 AI 綜合導航",
     "🧮 買進決策模擬",
@@ -873,9 +878,9 @@ with tab2:
         
         if "張數" in sim_unit_type:
             sim_lots = st.number_input("預想買入張數", value=1, min_value=1, step=1, key="sim_lots_input")
-            sim_shares = sim_lots * 1000
+            sim_shares = int(sim_lots * 1000)
         else:
-            sim_shares = st.number_input("預想買入股數", value=1000, min_value=100, step=100, key="sim_shares_input")
+            sim_shares = int(st.number_input("預想買入股數", value=1000, min_value=100, step=100, key="sim_shares_input"))
             sim_lots = sim_shares / 1000.0
 
         total_budget_yuan = sim_price_input * sim_shares
@@ -884,12 +889,12 @@ with tab2:
         sim_target_p = round(sim_price_input + (screen_res["atr"] * 2.5), 1)
         sim_stop_p = round(sim_price_input - (screen_res["atr"] * 1.5), 1)
 
-        max_gain_yuan = round((sim_target_p - sim_price_input) * sim_shares)
-        max_loss_yuan = round((sim_price_input - sim_stop_p) * sim_shares)
+        max_gain_yuan = int(round((sim_target_p - sim_price_input) * sim_shares))
+        max_loss_yuan = int(round((sim_price_input - sim_stop_p) * sim_shares))
         
         sim_rr_ratio = round((sim_target_p - sim_price_input) / (sim_price_input - sim_stop_p), 2) if (sim_price_input - sim_stop_p) > 0 else 0.0
 
-        price_diff_pct = ((sim_price_input - curr_p) / curr_p) * 100.0
+        price_diff_pct = ((sim_price_input - curr_p) / curr_p) * 100.0 if curr_p > 0 else 0.0
         base_calc_win = ai_prob["prob_up"]
         if price_diff_pct <= 0:
             price_bonus = min(abs(price_diff_pct) * 1.5, 14.0)
@@ -1096,7 +1101,7 @@ with tab5:
             total_cost = buy_price * holding_shares
             current_val = curr_p * holding_shares
             pnl_val = current_val - total_cost
-            pnl_pct = (pnl_val / total_cost) * 100
+            pnl_pct = (pnl_val / total_cost) * 100 if total_cost > 0 else 0.0
             pnl_color = "#ff4d4d" if pnl_val >= 0 else "#00e676"
             pnl_sign = "+" if pnl_val >= 0 else ""
             st.markdown(f"""<div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.85rem;"><div style="margin-bottom:4px;">成本/現價: <strong>${buy_price:.1f} / ${curr_p:.1f}</strong></div><div style="margin-bottom:4px;">未實現損益: <strong style="color:{pnl_color};">{pnl_sign}${pnl_val:,.0f}</strong></div><div>報酬率: <strong style="color:{pnl_color};">{pnl_sign}{pnl_pct:.2f}%</strong></div></div>""", unsafe_allow_html=True)
@@ -1110,7 +1115,7 @@ with tab5:
     with col18:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
         if has_position and holding_shares > 0 and buy_price > 0:
-            pnl_pct_val = ((curr_p - buy_price) / buy_price) * 100
+            pnl_pct_val = ((curr_p - buy_price) / buy_price) * 100 if buy_price > 0 else 0.0
             if pnl_pct_val >= 15:
                 sugg = "獲利豐厚，建議可移動停利點或逢高分批獲利了結。"
             elif pnl_pct_val <= -7:
