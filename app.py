@@ -1,4 +1,4 @@
-# ----------------- app_18.py (完整專業終端升級版 - 完美解決您的所有需求) -----------------
+# ----------------- app_18.py (完整專業終端升級版 - 手機優化與數據修復版) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -10,7 +10,7 @@ import streamlit as st
 import yfinance as yf
 import time
 
-# ----------------- 1. 頁面配置與 CSS 樣式 -----------------
+# ----------------- 1. 頁面配置與 CSS 樣式 (含 RWD 行動裝置優化) -----------------
 st.set_page_config(
     page_title="AI 股市量化決策控制台 (專業終端版)",
     layout="wide",
@@ -22,13 +22,13 @@ st.markdown(
 .stApp { background-color: #0b0e14; color: #e0e6ed; }
 
 .block-container { 
-    padding-top: 3rem !important; 
-    padding-bottom: 3rem !important; 
-    padding-left: 3rem !important; 
-    padding-right: 3rem !important; 
+    padding-top: 2rem !important; 
+    padding-bottom: 2rem !important; 
+    padding-left: 2rem !important; 
+    padding-right: 2rem !important; 
 }
 
-.card-header { font-size: 0.95rem; font-weight: bold; color: #8b9bb4; margin-bottom: 8px; display: flex; align-items: center; }
+.card-header { font-size: 0.95rem; font-weight: bold; color: #8b9bb4; margin-bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .card-header-badge { background-color: #1e2638; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; font-weight: bold; letter-spacing: 0.5px; border: 1px solid #334155; }
 
 /* 頂部資訊列 */
@@ -40,38 +40,39 @@ st.markdown(
     margin-bottom: 16px; 
 }
 .header-container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-.header-title-box { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 250px; }
+.header-title-box { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 220px; }
 .header-stats-box { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
 
-.symbol-title { font-size: clamp(1.4rem, 2vw, 1.8rem); font-weight: 800; color: #ffffff; line-height: 1.2; }
-.price-large { font-size: clamp(1.4rem, 2vw, 1.8rem); font-weight: 800; line-height: 1.2; }
+.symbol-title { font-size: clamp(1.2rem, 2vw, 1.8rem); font-weight: 800; color: #ffffff; line-height: 1.2; }
+.price-large { font-size: clamp(1.3rem, 2vw, 1.8rem); font-weight: 800; line-height: 1.2; }
 .up-red { color: #ff4d4d; }
 .down-green { color: #00e676; }
 
 /* 側邊欄卡片 */
-.market-card { background: linear-gradient(135deg, #151b26 0%, #10141d 100%); border: 1px solid #2a3447; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.market-card { background: linear-gradient(135deg, #151b26 0%, #10141d 100%); border: 1px solid #2a3447; border-radius: 8px; padding: 12px; margin-bottom: 12px; width: 100%; }
 .market-title { font-size: 0.85rem; font-weight: bold; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
 .market-price { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
 
-/* 市場環境側邊欄卡片樣式 */
-.env-sidebar-card { background: #121621; border: 1px solid #232d3f; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 0.8rem; }
-.env-status-badge { font-size: 0.85rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+/* 市場環境側邊欄卡片樣式 (已移除 MODULE 02) */
+.env-sidebar-card { background: #121621; border: 1px solid #232d3f; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; width: 100%; }
+.env-status-badge { font-size: 0.85rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; width: 100%; text-align: center; margin-top: 6px; }
 .badge-bull { background-color: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; }
 .badge-neutral { background-color: rgba(255, 204, 0, 0.15); color: #ffcc00; border: 1px solid #ffcc00; }
 .badge-bear { background-color: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid #ff4d4d; }
 
-/* 買進建議判定徽章 */
-.badge-buy-green { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 1.05rem; }
-.badge-buy-yellow { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 1.05rem; }
-.badge-buy-red { background-color: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 1.05rem; }
+/* 買進建議判定徽章 (自動填滿方塊) */
+.badge-buy-green { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
+.badge-buy-yellow { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
+.badge-buy-red { background-color: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
 
-/* 主頁分區塊分組樣式 */
+/* 主頁分區塊樣式 */
 .main-section {
     background: #0d1117;
     border: 1px solid #21262d;
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 20px;
+    width: 100%;
 }
 .main-section-title {
     font-size: 1.1rem;
@@ -85,16 +86,20 @@ st.markdown(
     gap: 8px;
 }
 
+/* 行動裝置 RWD 優化 */
 @media (max-width: 768px) {
+    .block-container { padding: 1rem !important; }
     .header-container { flex-direction: column; align-items: flex-start; }
     .header-stats-box { width: 100%; justify-content: space-between; gap: 10px; }
+    .symbol-title { font-size: 1.3rem; }
+    .price-large { font-size: 1.3rem; }
 }
 </style>""",
     unsafe_allow_html=True,
 )
 
 
-# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (大盤高精確即時修復) -----------------
+# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (確保與 Yahoo 股市一致) -----------------
 _HTTP = requests.Session()
 _HTTP.headers.update({
     "User-Agent": (
@@ -145,6 +150,7 @@ def _make_quote(curr, change=None, pct=None, ref=None, source="", quote_time="")
 
 
 def _fetch_twse_taiex():
+    # 優先使用 Yahoo Finance ^TWII (與 Yahoo 股市完全對齊)
     try:
         twii = yf.Ticker("^TWII")
         hist = twii.history(period="5d")
@@ -165,37 +171,27 @@ def _fetch_twse_taiex():
     except Exception:
         pass
 
-    ts = int(time.time() * 1000)
-    url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
-    params = {"ex_ch": "tse_t00.tw", "_": str(ts)}
+    # 備援：證交所 MIS API
+    try:
+        ts = int(time.time() * 1000)
+        url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
+        params = {"ex_ch": "tse_t00.tw", "_": str(ts)}
+        r = _HTTP.get(url, params=params, timeout=3.5)
+        r.raise_for_status()
+        payload = r.json()
+        rows = payload.get("msgArray", [])
+        if rows:
+            d = rows[0]
+            curr = _to_float(d.get("z"))
+            prev = _to_float(d.get("y"))
+            if curr > 0:
+                change = curr - prev if prev > 0 else _to_float(d.get("p"))
+                pct = (change / prev * 100.0) if prev > 0 else _to_float(d.get("o"))
+                return _make_quote(curr, change=change, pct=pct, ref=prev, source="TWSE 證交所即時", quote_time=d.get("t", ""))
+    except Exception:
+        pass
 
-    r = _HTTP.get(url, params=params, timeout=3.5)
-    r.raise_for_status()
-    payload = r.json()
-    rows = payload.get("msgArray", [])
-
-    if not rows:
-        raise ValueError("TWSE MIS 沒有回傳 TAIEX 資料")
-
-    d = rows[0]
-    curr = _to_float(d.get("z"))
-    prev = _to_float(d.get("y"))
-
-    if curr <= 0:
-        raise ValueError(f"TWSE MIS TAIEX 最新成交值無效: {d.get('z')}")
-
-    change = curr - prev if prev > 0 else _to_float(d.get("p"))
-    pct = (change / prev * 100.0) if prev > 0 else _to_float(d.get("o"))
-    quote_time = d.get("t") or d.get("d") or ""
-
-    return _make_quote(
-        curr,
-        change=change,
-        pct=pct,
-        ref=prev,
-        source="TWSE 證交所即時",
-        quote_time=quote_time,
-    )
+    raise ValueError("無法取得加權指數即時數據")
 
 
 def _fetch_taifex_txf():
@@ -226,17 +222,11 @@ def fetch_realtime_index_and_futures():
     except Exception as exc:
         tse = st.session_state.get("last_known_tse")
         if tse is None or tse.get("curr", 0) <= 0:
-            try:
-                hist = yf.Ticker("^TWII").history(period="2d")
-                curr = float(hist["Close"].iloc[-1])
-                prev = float(hist["Close"].iloc[-2])
-                tse = _make_quote(curr, curr - prev, (curr-prev)/prev*100, prev, source="Yahoo ^TWII 動態即時備援")
-            except Exception:
-                tse = {
-                    "curr": 23250.0, "change": 0.0, "pct": 0.0,
-                    "source": "安全備援預設值", "quote_time": datetime.now().strftime("%H:%M:%S"),
-                    "received_at": time.time(), "error": str(exc),
-                }
+            tse = {
+                "curr": 23250.0, "change": 0.0, "pct": 0.0,
+                "source": "安全備援預設值", "quote_time": datetime.now().strftime("%H:%M:%S"),
+                "received_at": time.time(), "error": str(exc),
+            }
     return tse, _fetch_taifex_txf()
 
 
@@ -346,7 +336,7 @@ def fetch_taiex_market_env():
     return env_res
 
 
-# ----------------- 3. 側邊欄控制台面板與模組 02 簡化顯示 -----------------
+# ----------------- 3. 側邊欄控制台面板與模組 (已移除 MODULE 02 字樣) -----------------
 st.sidebar.subheader("🔄 即時行情數據 (獨立微刷新)")
 enable_autorefresh = st.sidebar.checkbox("開啟即時自動更新", value=True)
 
@@ -383,20 +373,18 @@ def render_sidebar_market_fragment():
 with st.sidebar:
     render_sidebar_market_fragment()
 
-# MODULE 02 側邊欄大盤環境顯示
+# 側邊欄大盤環境顯示 (已移除 MODULE 02 字樣)
 env_data = fetch_taiex_market_env()
 st.sidebar.markdown(
     f"""
 <div class="env-sidebar-card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span class="card-header-badge">MODULE 02</span>
-        <span class="env-status-badge {env_data['env_style']}">{env_data['env_light']}</span>
-    </div>
-    <div style="color:#cbd5e1; margin-bottom:6px; line-height:1.3;">{env_data['env_desc']}</div>
-    <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.75rem;">
+    <div style="color:#ffffff; font-weight:bold; margin-bottom:6px; font-size:0.88rem;">📊 大盤多空環境評估</div>
+    <div style="color:#cbd5e1; margin-bottom:8px; line-height:1.3;">{env_data['env_desc']}</div>
+    <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.75rem; margin-bottom:6px;">
         <span>環境評分: <strong style="color:#38bdf8;">{env_data['score']}/6</strong></span>
         <span>均線結構: <strong>{'多頭' if env_data['cond1'] else '空頭'}</strong></span>
     </div>
+    <div class="env-status-badge {env_data['env_style']}">{env_data['env_light']}</div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -775,16 +763,16 @@ st.markdown(
         </div>
     </div>
     <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
-        <div style="flex:1 1 320px; background:#1e293b; padding:14px; border-radius:8px; border:1px solid #334155;">
+        <div style="flex:1 1 300px; background:#1e293b; padding:14px; border-radius:8px; border:1px solid #334155;">
             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
                 <span style="font-size:0.9rem; color:#ff4d4d; font-weight:bold;">📈 AI 看多率：{ai_prob['prob_up']}%</span>
                 <span style="font-size:0.9rem; color:#00e676; font-weight:bold;">📉 AI 看空率：{ai_prob['prob_down']}%</span>
             </div>
-            <div style="background-color:#00e676; height:14px; border-radius:7px; overflow:hidden; display:flex; border:1px solid #0f172a;">
+            <div style="background-color:#00e676; height:14px; border-radius:7px; overflow:hidden; display:flex; border:1px solid #0f172a; width:100%;">
                 <div style="background-color:#ff4d4d; width:{ai_prob['prob_up']}%; height:100%;"></div>
             </div>
         </div>
-        <div style="flex:2 1 400px; background:#182030; padding:14px; border-radius:8px; border-left:4px solid {ai_prob['color']};">
+        <div style="flex:2 1 350px; background:#182030; padding:14px; border-radius:8px; border-left:4px solid {ai_prob['color']};">
             <div style="font-size:0.95rem; font-weight:bold; color:#ffffff; margin-bottom:6px;">💡 AI 量化深度運算導航指南</div>
             <div style="font-size:0.88rem; color:#d1d5db; line-height:1.5; margin-bottom:10px;">{ai_prob['advice']}</div>
             <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:0.8rem;">
@@ -800,7 +788,7 @@ st.markdown(
 st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- 5. 預想買入試算與 AI 買進決策控制台 (即時數據 AI 動態運算) -----------------
+# ----------------- 5. 預想買入試算與 AI 買進決策控制台 -----------------
 st.markdown('<div class="main-section"><div class="main-section-title">🧮 預想買入試算與 AI 買進決策控制台</div>', unsafe_allow_html=True)
 
 sim_col1, sim_col2 = st.columns([1, 2])
@@ -864,11 +852,11 @@ with sim_col2:
     st.markdown(
         f"""
     <div style="background:#131a29; border:1px solid #23324a; border-radius:8px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div>
-            <span style="font-size:0.8rem; color:#94a3b8; display:block;">AI 買進許可評定 (動態運算)</span>
-            <span class="{buy_badge_class}">{buy_badge_text}</span>
+        <div style="flex:1 1 200px;">
+            <span style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">AI 買進許可評定 (動態運算)</span>
+            <div class="{buy_badge_class}">{buy_badge_text}</div>
         </div>
-        <div style="text-align:right;">
+        <div style="text-align:right; flex:1 1 140px;">
             <span style="font-size:0.8rem; color:#94a3b8; display:block;">預想價位 AI 綜合買進勝率</span>
             <span style="font-size:1.8rem; font-weight:800; color:{'#ff4d4d' if sim_win_rate>=60 else ('#f59e0b' if sim_win_rate>=45 else '#00e676')};">{sim_win_rate}%</span>
         </div>
@@ -879,7 +867,7 @@ with sim_col2:
 
     st.markdown(
         f"""
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:12px;">
         <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #26334a;">
             <div style="font-size:0.78rem; color:#94a3b8;">最佳建議掛單買進區間</div>
             <div style="font-size:1.05rem; font-weight:bold; color:#38bdf8; margin-top:2px;">
@@ -1069,7 +1057,7 @@ colors_vol = ["#ff4d4d" if c >= o else "#00e676" for c, o in zip(hist_df["Close"
 fig.add_trace(go.Bar(x=hist_df.index, y=hist_df["Volume"] / 1000, marker_color=colors_vol, name="成交量 (張)"), row=2, col=1)
 fig.add_trace(go.Scatter(x=hist_df.index, y=screen_res["rsi_series"], line=dict(color="#ec4899", width=1.5), name="RSI (14)"), row=3, col=1)
 
-fig.update_layout(height=650, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False, showlegend=True)
+fig.update_layout(height=600, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False, showlegend=True)
 st.plotly_chart(fig, use_container_width=True)
 
 col11, col12 = st.columns(2)
@@ -1081,7 +1069,7 @@ with col11:
     fig_pred.add_trace(go.Scatter(x=[hist_df.index[-1]] + future_dates, y=[curr_p] + list(mc_res["mean"][1:]), name="AI預測走勢", line=dict(color="#f59e0b", width=2.5, dash="dash")))
     fig_pred.add_hline(y=ai_dec["support"], line_dash="dash", line_color="#00e676", annotation_text="AI 支撐")
     fig_pred.add_hline(y=ai_dec["resistance"], line_dash="dash", line_color="#ff4d4d", annotation_text="AI 壓力")
-    fig_pred.update_layout(height=320, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
+    fig_pred.update_layout(height=300, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
     st.plotly_chart(fig_pred, use_container_width=True)
 
 with col12:
@@ -1091,12 +1079,12 @@ with col12:
     fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["upper"], line=dict(color="#ff4d4d", dash="dot"), name="上軌"))
     fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["mean"], line=dict(color="#f59e0b", width=2), name="中軸"))
     fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["lower"], line=dict(color="#00e676", dash="dot"), name="下軌"))
-    fig_mc.update_layout(height=320, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
+    fig_mc.update_layout(height=300, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
     st.plotly_chart(fig_mc, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- 8. 籌碼與個人庫存深度檢核 (MODULES 13 - 18 升級版) -----------------
+# ----------------- 8. 籌碼與個人庫存深度檢核 (MODULES 13 - 18) -----------------
 st.markdown('<div class="main-section"><div class="main-section-title">🛡️ 籌碼面、風險矩陣與個人庫存 AI 深度執行檢核</div>', unsafe_allow_html=True)
 col13, col14, col15 = st.columns(3)
 
@@ -1132,12 +1120,10 @@ with col17:
     st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 17</span> 🔔 風險警示與智慧動態通知</div>', unsafe_allow_html=True)
     st.markdown(f"""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常。</div></div>""", unsafe_allow_html=True)
 
-# ----------------- MODULE 18 升級：現有庫存 AI 深度運算與操作評斷 -----------------
 with col18:
     st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
     
     if has_position and holding_shares > 0 and buy_price > 0:
-        # 動態針對庫存進行 AI 操作評斷
         inv_pnl_pct = ((curr_p - buy_price) / buy_price) * 100.0
         if inv_pnl_pct >= 10.0 and ai_prob["prob_up"] >= 50:
             inv_advice = "🟢 【續抱為主 / 可考慮獲利入袋一部份】目前獲利幅度豐厚，多頭趨勢仍在，建議守好月線或移動停利點續抱。"
