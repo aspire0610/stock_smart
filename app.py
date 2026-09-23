@@ -1,4 +1,4 @@
-# ----------------- app_18.py (完整專業終端升級版 - 手機優化與數據修復版) -----------------
+# ----------------- app_18.py (完整專業終端升級版 - 大盤API與備援優化修復版) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -53,14 +53,14 @@ st.markdown(
 .market-title { font-size: 0.85rem; font-weight: bold; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
 .market-price { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
 
-/* 市場環境側邊欄卡片樣式 (已移除 MODULE 02) */
+/* 市場環境側邊欄卡片樣式 */
 .env-sidebar-card { background: #121621; border: 1px solid #232d3f; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; width: 100%; }
 .env-status-badge { font-size: 0.85rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; width: 100%; text-align: center; margin-top: 6px; }
 .badge-bull { background-color: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; }
 .badge-neutral { background-color: rgba(255, 204, 0, 0.15); color: #ffcc00; border: 1px solid #ffcc00; }
 .badge-bear { background-color: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid #ff4d4d; }
 
-/* 買進建議判定徽章 (自動填滿方塊) */
+/* 買進建議判定徽章 */
 .badge-buy-green { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
 .badge-buy-yellow { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
 .badge-buy-red { background-color: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
@@ -99,7 +99,7 @@ st.markdown(
 )
 
 
-# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (確保與 Yahoo 股市一致) -----------------
+# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (已升級官方 TWSE API 與多重備援) -----------------
 _HTTP = requests.Session()
 _HTTP.headers.update({
     "User-Agent": (
@@ -150,28 +150,37 @@ def _make_quote(curr, change=None, pct=None, ref=None, source="", quote_time="")
 
 
 def _fetch_twse_taiex():
-    # 優先使用 Yahoo Finance ^TWII (與 Yahoo 股市完全對齊)
+    # 1. 優先使用證交所官方 OpenAPI 加權指數 / 官方行情資料
     try:
-        twii = yf.Ticker("^TWII")
-        hist = twii.history(period="5d")
-        if not hist.empty and len(hist) >= 2:
-            curr = float(hist["Close"].iloc[-1])
-            prev = float(hist["Close"].iloc[-2])
-            change = round(curr - prev, 2)
-            pct = round((change / prev) * 100, 2)
-            quote_time = hist.index[-1].strftime("%Y-%m-%d %H:%M:%S")
-            return _make_quote(
-                curr,
-                change=change,
-                pct=pct,
-                ref=prev,
-                source="Yahoo Finance (^TWII 即時)",
-                quote_time=quote_time,
-            )
+        url = "https://openapi.twse.com.tw/v1/exchangeReport/MI_5MINS_HIST"
+        r = _HTTP.get(url, timeout=4.0)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list) and len(data) > 0:
+            latest = data[-1]
+            curr = _to_float(latest.get("ClosingIndex") or latest.get("收盤指數"))
+            # 有些格式可能需要向前尋找前一日收盤
+            if curr > 0:
+                prev = curr
+                if len(data) >= 2:
+                    prev = _to_float(data[-2].get("ClosingIndex") or data[-2].get("收盤指數"))
+                    if prev <= 0:
+                        prev = curr
+                change = round(curr - prev, 2)
+                pct = round((change / prev) * 100, 2) if prev > 0 else 0.0
+                quote_time = str(latest.get("Date") or latest.get("日期") or datetime.now().strftime("%Y-%m-%d"))
+                return _make_quote(
+                    curr,
+                    change=change,
+                    pct=pct,
+                    ref=prev,
+                    source="TWSE 證交所官方 OpenAPI",
+                    quote_time=quote_time,
+                )
     except Exception:
         pass
 
-    # 備援：證交所 MIS API
+    # 2. 第二備援：TWSE MIS API (tse_t00.tw)
     try:
         ts = int(time.time() * 1000)
         url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
@@ -187,7 +196,28 @@ def _fetch_twse_taiex():
             if curr > 0:
                 change = curr - prev if prev > 0 else _to_float(d.get("p"))
                 pct = (change / prev * 100.0) if prev > 0 else _to_float(d.get("o"))
-                return _make_quote(curr, change=change, pct=pct, ref=prev, source="TWSE 證交所即時", quote_time=d.get("t", ""))
+                return _make_quote(curr, change=change, pct=pct, ref=prev, source="TWSE 證交所 MIS 即時", quote_time=d.get("t", ""))
+    except Exception:
+        pass
+
+    # 3. 第三備援：Yahoo Finance ^TWII
+    try:
+        twii = yf.Ticker("^TWII")
+        hist = twii.history(period="5d")
+        if not hist.empty and len(hist) >= 2:
+            curr = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2])
+            change = round(curr - prev, 2)
+            pct = round((change / prev) * 100, 2)
+            quote_time = hist.index[-1].strftime("%Y-%m-%d %H:%M:%S")
+            return _make_quote(
+                curr,
+                change=change,
+                pct=pct,
+                ref=prev,
+                source="Yahoo Finance (^TWII 備援)",
+                quote_time=quote_time,
+            )
     except Exception:
         pass
 
@@ -212,7 +242,7 @@ def _fetch_taifex_txf():
             }
     except Exception:
         pass
-    return {"curr": 23250.0, "change": 0.0, "pct": 0.0, "source": "台指期備援", "quote_time": ""}
+    return {"curr": 23250.0, "change": 0.0, "pct": 0.0, "source": "台指期安全備援", "quote_time": ""}
 
 
 def fetch_realtime_index_and_futures():
@@ -336,7 +366,7 @@ def fetch_taiex_market_env():
     return env_res
 
 
-# ----------------- 3. 側邊欄控制台面板與模組 (已移除 MODULE 02 字樣) -----------------
+# ----------------- 3. 側邊欄控制台面板與模組 -----------------
 st.sidebar.subheader("🔄 即時行情數據 (獨立微刷新)")
 enable_autorefresh = st.sidebar.checkbox("開啟即時自動更新", value=True)
 
@@ -373,7 +403,6 @@ def render_sidebar_market_fragment():
 with st.sidebar:
     render_sidebar_market_fragment()
 
-# 側邊欄大盤環境顯示 (已移除 MODULE 02 字樣)
 env_data = fetch_taiex_market_env()
 st.sidebar.markdown(
     f"""
@@ -1124,36 +1153,4 @@ with col18:
     st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
     
     if has_position and holding_shares > 0 and buy_price > 0:
-        inv_pnl_pct = ((curr_p - buy_price) / buy_price) * 100.0
-        if inv_pnl_pct >= 10.0 and ai_prob["prob_up"] >= 50:
-            inv_advice = "🟢 【續抱為主 / 可考慮獲利入袋一部份】目前獲利幅度豐厚，多頭趨勢仍在，建議守好月線或移動停利點續抱。"
-        elif inv_pnl_pct <= -7.0:
-            inv_advice = "🔴 【觸及停損警戒線】持股虧損已達停損門檻，建議依紀律執行部分減碼或全面停損，嚴控資金風險。"
-        elif -7.0 < inv_pnl_pct < 0 and curr_p >= screen_res["ma20"]:
-            inv_advice = "🟡 【小幅拉回震盪 / 逢低考慮佈局攤平】現價仍站穩關鍵均線，若大盤環境允許，可於支撐區分批低接。"
-        else:
-            inv_advice = "⚖️ 【區間震盪觀望】多空不明，建議嚴守防守價位，不宜躁進追高。"
-            
-        st.markdown(
-            f"""
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.82rem; line-height:1.4;">
-            <div style="color:#38bdf8; font-weight:bold; margin-bottom:4px;">📊 現有庫存 AI 評斷：</div>
-            <div style="color:#e2e8f0; margin-bottom:6px;">{inv_advice}</div>
-            <div style="color:#94a3b8; border-top:1px solid #232f3f; pt:4px;">紀律核心：<strong>嚴格風控、依 ATR 停損、分批進出</strong>。</div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            """
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.82rem; line-height:1.4;">
-            <div style="color:#38bdf8; font-weight:bold; margin-bottom:4px;">📊 AI 總結建議：</div>
-            <div style="color:#e2e8f0; margin-bottom:6px;">未匯入持股資料。建議啟用側邊欄庫存設定，以解鎖個人化部位的 AI 損益評斷與加碼建議。</div>
-            <div style="color:#94a3b8;">遵循 <strong>嚴格風控、分批進場、依 ATR 停損</strong> 三大原則。</div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-st.markdown('</div>', unsafe_allow_html=True)
+        pass
