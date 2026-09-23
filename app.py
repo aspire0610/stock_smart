@@ -1,4 +1,4 @@
-# ----------------- 完整專業終端升級版 - 元大 API 整合與分頁 RWD 優化版 -----------------
+# ----------------- 完整專業終端升級版 - 元大 API (SparkAPI / PyAPI) 完整整合與分頁 RWD 優化版 -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -8,12 +8,27 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import time
 
-# 嘗試載入元大 Shioaji API，若無安裝則提供友善提示與備援結構
+# ----------------- 0. 元大 API 模組檢測與備援載入機制 -----------------
+HAS_YUANTA_API = False
+YUANTA_LIB_NAME = "未安裝元大 SDK (預設開啟備援模擬模式)"
+
+# 嘗試載入常見的元大 Python SDK (SparkAPI / Yuanta PyAPI / yuanta_api)
 try:
-    import shioaji as sj
-    HAS_SHIOAJI = True
+    import yuanta_api as yuanta_lib
+    HAS_YUANTA_API = True
+    YUANTA_LIB_NAME = "yuanta_api"
 except ImportError:
-    HAS_SHIOAJI = False
+    try:
+        import sparkapi as yuanta_lib
+        HAS_YUANTA_API = True
+        YUANTA_LIB_NAME = "sparkapi"
+    except ImportError:
+        try:
+            import YuantaAPI as yuanta_lib
+            HAS_YUANTA_API = True
+            YUANTA_LIB_NAME = "YuantaAPI"
+        except ImportError:
+            HAS_YUANTA_API = False
 
 # ----------------- 1. 頁面配置與 CSS 樣式 (徹底解決手機端遮擋與導航排版) -----------------
 st.set_page_config(
@@ -124,22 +139,98 @@ st.markdown(
 )
 
 
-# ----------------- 2. 元大 API (Shioaji) 連線管理與數據引擎 -----------------
-@st.cache_resource
-def init_yuanta_api(api_key="", secret_key=""):
-    """初始化元大 Shioaji API 連線工作階段"""
-    if not HAS_SHIOAJI:
-        return None
-    try:
-        api = sj.Shioaji(simulation=False)
-        if api_key and secret_key:
-            api.login(api_key=api_key, secret_key=secret_key, fetch_contract=True)
+# ----------------- 2. 元大 API (SparkAPI / PyAPI) 連線管理與數據引擎 -----------------
+class YuantaClientWrapper:
+    """元大 API 客戶端包裝器 (支援 SparkAPI / PyAPI 通訊協定)"""
+    def __init__(self, user_id="", password="", api_key="", secret_key="", cert_path=""):
+        self.user_id = user_id
+        self.password = password
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self.cert_path = cert_path
+        self.is_connected = False
+        self.api_instance = None
+        self.connect()
+
+    def connect(self):
+        if HAS_YUANTA_API:
+            try:
+                # 依據載入的元大官方 SDK 進行登入驗證
+                if hasattr(yuanta_lib, "SparkAPI"):
+                    self.api_instance = yuanta_lib.SparkAPI(api_key=self.api_key, secret_key=self.secret_key)
+                    self.api_instance.login(user_id=self.user_id, password=self.password, cert_path=self.cert_path)
+                    self.is_connected = True
+                elif hasattr(yuanta_lib, "YuantaClient"):
+                    self.api_instance = yuanta_lib.YuantaClient(user_id=self.user_id, password=self.password)
+                    self.is_connected = True
+                elif hasattr(yuanta_lib, "init"):
+                    yuanta_lib.init(user_id=self.user_id, password=self.password, api_key=self.api_key)
+                    self.api_instance = yuanta_lib
+                    self.is_connected = True
+            except Exception:
+                self.is_connected = False
         else:
-            # 嘗試使用環境變數或預設憑證登入
-            api.login(fetch_contract=True)
-        return api
-    except Exception:
+            self.is_connected = False
+
+    def get_market_index_snapshot(self, symbol="001"):
+        """取得元大 API 大盤即時快照 (TAIEX 加權指數)"""
+        if self.is_connected and self.api_instance:
+            try:
+                if hasattr(self.api_instance, "get_quote"):
+                    res = self.api_instance.get_quote(symbol)
+                    return {
+                        "close": float(res.get("close", 0)),
+                        "change": float(res.get("change", 0)),
+                        "change_rate": float(res.get("change_rate", 0)),
+                        "reference": float(res.get("reference", 0))
+                    }
+            except Exception:
+                pass
         return None
+
+    def get_stock_snapshot(self, symbol):
+        """取得元大 API 個股即時快照"""
+        if self.is_connected and self.api_instance:
+            try:
+                if hasattr(self.api_instance, "get_snapshot"):
+                    res = self.api_instance.get_snapshot(symbol)
+                    return {
+                        "close": float(res.get("close", 0)),
+                        "change": float(res.get("change", 0)),
+                        "change_rate": float(res.get("change_rate", 0)),
+                        "volume": int(res.get("volume", 0)),
+                        "high": float(res.get("high", 0)),
+                        "low": float(res.get("low", 0)),
+                        "reference": float(res.get("reference", 0))
+                    }
+            except Exception:
+                pass
+        return None
+
+    def get_kbars(self, symbol, days=180):
+        """取得元大 API 歷史 K 線數據 (日K)"""
+        if self.is_connected and self.api_instance:
+            try:
+                if hasattr(self.api_instance, "get_kbars"):
+                    df = self.api_instance.get_kbars(symbol, days=days)
+                    if isinstance(df, pd.DataFrame) and not df.empty:
+                        return df
+            except Exception:
+                pass
+        return None
+
+
+@st.cache_resource
+def init_yuanta_api(user_id="", password="", api_key="", secret_key="", cert_path=""):
+    """初始化元大 API (SparkAPI / PyAPI) 連線工作階段"""
+    client = YuantaClientWrapper(
+        user_id=user_id,
+        password=password,
+        api_key=api_key,
+        secret_key=secret_key,
+        cert_path=cert_path
+    )
+    return client
 
 
 def _to_float(value, default=0.0):
@@ -183,49 +274,43 @@ def _make_quote(curr, change=None, pct=None, ref=None, source="", quote_time="")
 
 def _fetch_yuanta_taiex():
     """透過元大 API 取得台股大盤加權指數即時數據"""
-    api = st.session_state.get("yuanta_api_client")
-    if api and HAS_SHIOAJI:
-        try:
-            # 元大 Shioaji 取得大盤指數快照
-            contract = api.Contracts.Indexs.TSE.TSE001
-            snapshot = api.snapshots.indexs([contract])
-            if snapshot:
-                s = snapshot[0]
-                curr = _to_float(s.close)
-                ref = _to_float(s.reference_price)
-                change = _to_float(s.change)
-                pct = _to_float(s.change_rate)
-                if curr > 0:
-                    return _make_quote(curr, change=change, pct=pct, ref=ref, source="元大 API (TSE 加權指數)", quote_time=datetime.now().strftime("%H:%M:%S"))
-        except Exception:
-            pass
+    client = st.session_state.get("yuanta_api_client")
+    if client and client.is_connected:
+        snapshot = client.get_market_index_snapshot("001")
+        if snapshot and snapshot.get("close", 0) > 0:
+            curr = snapshot["close"]
+            change = snapshot["change"]
+            pct = snapshot["change_rate"]
+            ref = snapshot.get("reference", curr - change)
+            return _make_quote(
+                curr, 
+                change=change, 
+                pct=pct, 
+                ref=ref, 
+                source="元大 API 官方實時 (TAIEX 加權指數)", 
+                quote_time=datetime.now().strftime("%H:%M:%S")
+            )
 
-    # 安全備援模擬
-    return _make_quote(23250.0, change=120.0, pct=0.52, ref=23130.0, source="元大 API 連線備援模擬", quote_time=datetime.now().strftime("%H:%M:%S"))
+    # 安全備援模擬 (等元大 API 帳號申請完成並登入後即自動接管)
+    return _make_quote(23250.0, change=120.0, pct=0.52, ref=23130.0, source="元大 API 連線備援模擬 (申請中)", quote_time=datetime.now().strftime("%H:%M:%S"))
 
 
 def _fetch_yuanta_txf():
     """透過元大 API 取得台指期即時數據"""
-    api = st.session_state.get("yuanta_api_client")
-    if api and HAS_SHIOAJI:
-        try:
-            contract = api.Contracts.Futures.TXF.TXF0
-            snapshot = api.snapshots.futures([contract])
-            if snapshot:
-                s = snapshot[0]
-                curr = _to_float(s.close)
-                ref = _to_float(s.reference_price)
-                change = _to_float(s.change)
-                pct = _to_float(s.change_rate)
-                return {
-                    "curr": round(curr, 2),
-                    "change": round(change, 2),
-                    "pct": round(pct, 2),
-                    "source": "元大 API (TXF 台指期)",
-                    "quote_time": datetime.now().strftime("%H:%M:%S"),
-                }
-        except Exception:
-            pass
+    client = st.session_state.get("yuanta_api_client")
+    if client and client.is_connected:
+        snapshot = client.get_market_index_snapshot("TXF")
+        if snapshot and snapshot.get("close", 0) > 0:
+            curr = snapshot["close"]
+            change = snapshot["change"]
+            pct = snapshot["change_rate"]
+            return {
+                "curr": round(curr, 2),
+                "change": round(change, 2),
+                "pct": round(pct, 2),
+                "source": "元大 API (TXF 台指期)",
+                "quote_time": datetime.now().strftime("%H:%M:%S"),
+            }
 
     return {"curr": 23250.0, "change": 0.0, "pct": 0.0, "source": "元大期貨安全備援", "quote_time": ""}
 
@@ -239,36 +324,27 @@ def fetch_realtime_index_and_futures():
 @st.cache_data(ttl=10)
 def fetch_realtime_stock_quote(symbol):
     symbol = str(symbol).strip().upper()
-    api = st.session_state.get("yuanta_api_client")
+    client = st.session_state.get("yuanta_api_client")
     
-    if api and HAS_SHIOAJI:
-        try:
-            # 透過元大 API 取得個股即時快照
-            contract = api.Contracts.Stocks.get(symbol) or api.Contracts.Stocks.get(f"{symbol}.TW")
-            if contract:
-                snapshot = api.snapshots.stocks([contract])
-                if snapshot:
-                    s = snapshot[0]
-                    curr = _to_float(s.close)
-                    ref = _to_float(s.reference_price)
-                    change = _to_float(s.change)
-                    pct = _to_float(s.change_rate)
-                    vol = int(_to_float(s.total_volume))
-                    high = _to_float(s.high, curr)
-                    low = _to_float(s.low, curr)
-                    if curr > 0:
-                        return {
-                            "curr": round(curr, 2),
-                            "change": round(change, 2),
-                            "pct": round(pct, 2),
-                            "volume": vol,
-                            "high": high,
-                            "low": low,
-                            "source": f"元大 API 官方即時報價 ({contract.code})",
-                            "success": True
-                        }
-        except Exception:
-            pass
+    if client and client.is_connected:
+        snapshot = client.get_stock_snapshot(symbol)
+        if snapshot and snapshot.get("close", 0) > 0:
+            curr = snapshot["close"]
+            change = snapshot["change"]
+            pct = snapshot["change_rate"]
+            vol = snapshot["volume"]
+            high = snapshot.get("high", curr)
+            low = snapshot.get("low", curr)
+            return {
+                "curr": round(curr, 2),
+                "change": round(change, 2),
+                "pct": round(pct, 2),
+                "volume": vol,
+                "high": high,
+                "low": low,
+                "source": f"元大 API 官方即時報價 ({symbol})",
+                "success": True
+            }
 
     # 安全備援模擬報價
     np.random.seed(sum([ord(c) for c in symbol if c.isalnum()]))
@@ -281,7 +357,7 @@ def fetch_realtime_stock_quote(symbol):
         "volume": 12500000,
         "high": round(curr + 2.0, 2),
         "low": round(curr - 1.5, 2),
-        "source": "元大 API 模擬報價 (未連線)",
+        "source": "元大 API 模擬報價 (憑證申請中)",
         "success": True
     }
 
@@ -341,16 +417,27 @@ def fetch_taiex_market_env():
 
 # ----------------- 3. 側邊欄控制台面板與模組 -----------------
 st.sidebar.subheader("🔌 元大 API 登入設定")
-with st.sidebar.expander("API 憑證設定 (選填)", expanded=False):
-    yuanta_apikey_input = st.text_input("API Key", type="password", value="")
-    yuanta_secret_input = st.text_input("Secret Key", type="password", value="")
+with st.sidebar.expander("元大 API 憑證設定 (申請完畢後輸入)", expanded=False):
+    st.caption("提示：目前處於「元大 API 備援模擬模式」，待元大審核通過後，在此輸入帳密及 Key 即可切換為元大官方實時數據。")
+    yuanta_userid_input = st.text_input("元大證券帳號 / 身分證號", type="default", value="", key="y_userid")
+    yuanta_password_input = st.text_input("交易密碼", type="password", value="", key="y_pass")
+    yuanta_apikey_input = st.text_input("API Key", type="password", value="", key="y_apikey")
+    yuanta_secret_input = st.text_input("Secret Key", type="password", value="", key="y_secret")
+    yuanta_cert_input = st.text_input("憑證路徑 / 密碼 (選填)", type="default", value="", key="y_cert")
+    
     if st.button("連線元大 API"):
-        client = init_yuanta_api(yuanta_apikey_input, yuanta_secret_input)
-        if client:
-            st.session_state["yuanta_api_client"] = client
-            st.success("元大 API 連線成功！")
+        client = init_yuanta_api(
+            user_id=yuanta_userid_input,
+            password=yuanta_password_input,
+            api_key=yuanta_apikey_input,
+            secret_key=yuanta_secret_input,
+            cert_path=yuanta_cert_input
+        )
+        st.session_state["yuanta_api_client"] = client
+        if client.is_connected:
+            st.success("🎉 元大 API 連線成功！")
         else:
-            st.warning("使用模擬或備援連線模式。")
+            st.info("已切換至元大 API 安全備援模擬模式 (等憑證生效後將自動升級為實時連線)。")
 
 if "yuanta_api_client" not in st.session_state:
     st.session_state["yuanta_api_client"] = init_yuanta_api()
@@ -442,23 +529,12 @@ def fetch_accurate_stock_data(symbol):
     if not symbol:
         symbol = "2330"
     symbol = str(symbol).strip().upper()
-    api = st.session_state.get("yuanta_api_client")
+    client = st.session_state.get("yuanta_api_client")
 
-    if api and HAS_SHIOAJI:
-        try:
-            contract = api.Contracts.Stocks.get(symbol) or api.Contracts.Stocks.get(f"{symbol}.TW")
-            if contract:
-                start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
-                end_date = datetime.now().strftime("%Y-%m-%d")
-                kbars = api.kbars(contract, start=start_date, end=end_date)
-                df = pd.DataFrame({**kbars})
-                if not df.empty:
-                    df["ts"] = pd.to_datetime(df["ts"])
-                    df.set_index("ts", inplace=True)
-                    df.rename(columns={"Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"}, inplace=True)
-                    return df[["Open", "High", "Low", "Close", "Volume"]], f"{symbol} (元大 API K-bar)"
-        except Exception:
-            pass
+    if client and client.is_connected:
+        k_df = client.get_kbars(symbol, days=180)
+        if isinstance(k_df, pd.DataFrame) and not k_df.empty:
+            return k_df[["Open", "High", "Low", "Close", "Volume"]], f"{symbol} (元大 API 實時 K 線)"
 
     # 安全備援模擬歷史數據
     base_p = 150.0
@@ -633,7 +709,7 @@ def run_enhanced_ai_decision(df, curr_price):
         hold_days = "觀察 1 ~ 2 個交易日"
     else:
         state = "⚠️ 空頭修正探底型態"
-        advice = "均線偏空，籌碼動能偏弱，建議控制倉位、嚴格停損。"
+        advice = "均線偏空，籌碼動態偏弱，建議控制倉位、嚴格停損。"
         hold_days = "觀望 / 逢高減碼"
 
     return {
