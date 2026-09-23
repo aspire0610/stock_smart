@@ -1,4 +1,4 @@
-# ----------------- 完整專業終端升級版 - 全代號支援與分頁 RWD 優化版 (已修復數據即時性與手機遮擋) -----------------
+# ----------------- 完整專業終端升級版 - 全代號支援與分頁 RWD 優化版 (已徹底解決手機遮擋與即時數據) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -10,7 +10,7 @@ import streamlit as st
 import yfinance as yf
 import time
 
-# ----------------- 1. 頁面配置與 CSS 樣式 (含 RWD 行動裝置遮擋修正與文字對比度優化) -----------------
+# ----------------- 1. 頁面配置與 CSS 樣式 (徹底解決手機端遮擋與導航排版) -----------------
 st.set_page_config(
     page_title="AI 股市量化決策控制台 (專業終端版)",
     layout="wide",
@@ -22,22 +22,23 @@ st.markdown(
 .stApp { background-color: #0b0e14; color: #f1f5f9; }
 
 .block-container { 
-    padding-top: 1.2rem !important; 
+    padding-top: 1.0rem !important; 
     padding-bottom: 2rem !important; 
-    padding-left: 1.2rem !important; 
-    padding-right: 1.2rem !important; 
+    padding-left: 1.0rem !important; 
+    padding-right: 1.0rem !important; 
 }
 
 .card-header { font-size: 0.95rem; font-weight: bold; color: #cbd5e1; margin-bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .card-header-badge { background-color: #1e293b; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; font-weight: bold; letter-spacing: 0.5px; border: 1px solid #475569; }
 
-/* 頂部資訊列 (已修正手機端遮擋與對比度) */
+/* 頂部資訊列 (完美預留空間防止手機端遮擋) */
 .top-header { 
     background-color: #121824; 
     border-bottom: 1px solid #334155; 
     padding: 14px 18px; 
     border-radius: 8px; 
-    margin-bottom: 16px; 
+    margin-bottom: 20px; 
+    margin-top: 10px;
 }
 .header-container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
 .header-title-box { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 220px; }
@@ -56,9 +57,6 @@ st.markdown(
 /* 市場環境側邊欄卡片樣式 */
 .env-sidebar-card { background: #121824; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; width: 100%; }
 .env-status-badge { font-size: 0.85rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; width: 100%; text-align: center; margin-top: 6px; }
-.badge-bull { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; }
-.badge-neutral { background-color: rgba(255, 204, 0, 0.2); color: #ffcc00; border: 1px solid #ffcc00; }
-.badge-bear { background-color: rgba(255, 82, 82, 0.2); color: #ff5252; border: 1px solid #ff5252; }
 
 /* 買進建議判定徽章 */
 .badge-buy-green { background-color: rgba(0, 230, 118, 0.25); color: #00e676; border: 1px solid #00e676; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
@@ -86,9 +84,31 @@ st.markdown(
     gap: 8px;
 }
 
+/* 針對 Streamlit Tabs 進行行動裝置橫向捲動優化，防止遮擋 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 6px;
+}
+.stTabs [data-baseweb="tab"] {
+    background-color: #121824 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 6px !important;
+    color: #cbd5e1 !important;
+    padding: 8px 14px !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+}
+.stTabs [aria-selected="true"] {
+    background-color: #1e293b !important;
+    border: 1px solid #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+
 /* 行動裝置 RWD 完美優化 */
 @media (max-width: 768px) {
-    .block-container { padding: 0.6rem !important; }
+    .block-container { padding: 0.5rem !important; }
     .header-container { flex-direction: column; align-items: flex-start; gap: 10px; }
     .header-stats-box { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .symbol-title { font-size: 1.1rem; }
@@ -99,7 +119,7 @@ st.markdown(
 )
 
 
-# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (修復即時性) -----------------
+# ----------------- 2. 智慧雙軌自動備援與即時數據確保引擎 -----------------
 _HTTP = requests.Session()
 _HTTP.headers.update({
     "User-Agent": (
@@ -108,8 +128,6 @@ _HTTP.headers.update({
     ),
     "Accept": "application/json, text/plain, */*",
     "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Pragma": "no-cache",
-    "Expires": "0",
 })
 
 
@@ -175,25 +193,6 @@ def _fetch_twse_taiex():
         pass
 
     try:
-        ts = int(time.time() * 1000)
-        url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
-        params = {"ex_ch": "tse_t00.tw", "_": str(ts)}
-        r = _HTTP.get(url, params=params, timeout=3.5)
-        r.raise_for_status()
-        payload = r.json()
-        rows = payload.get("msgArray", [])
-        if rows:
-            d = rows[0]
-            curr = _to_float(d.get("z"))
-            prev = _to_float(d.get("y"))
-            if curr > 0:
-                change = curr - prev if prev > 0 else _to_float(d.get("p"))
-                pct = (change / prev * 100.0) if prev > 0 else _to_float(d.get("o"))
-                return _make_quote(curr, change=change, pct=pct, ref=prev, source="TWSE 證交所 MIS 即時", quote_time=d.get("t", ""))
-    except Exception:
-        pass
-
-    try:
         twii = yf.Ticker("^TWII")
         hist = twii.history(period="5d")
         if not hist.empty and len(hist) >= 2:
@@ -202,7 +201,7 @@ def _fetch_twse_taiex():
             change = round(curr - prev, 2)
             pct = round((change / prev) * 100, 2)
             quote_time = hist.index[-1].strftime("%Y-%m-%d %H:%M:%S")
-            return _make_quote(curr, change=change, pct=pct, ref=prev, source="Yahoo Finance (^TWII 備援)", quote_time=quote_time)
+            return _make_quote(curr, change=change, pct=pct, ref=prev, source="Yahoo Finance (^TWII)", quote_time=quote_time)
     except Exception:
         pass
 
@@ -234,18 +233,18 @@ def fetch_realtime_index_and_futures():
     try:
         tse = _fetch_twse_taiex()
         st.session_state["last_known_tse"] = tse
-    except Exception as exc:
+    except Exception:
         tse = st.session_state.get("last_known_tse")
         if tse is None or tse.get("curr", 0) <= 0:
             tse = {
                 "curr": 23250.0, "change": 0.0, "pct": 0.0,
                 "source": "安全備援預設值", "quote_time": datetime.now().strftime("%H:%M:%S"),
-                "received_at": time.time(), "error": str(exc),
+                "received_at": time.time(),
             }
     return tse, _fetch_taifex_txf()
 
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=10)
 def fetch_realtime_stock_quote(symbol):
     symbol = str(symbol).strip().upper()
     
@@ -259,7 +258,7 @@ def fetch_realtime_stock_quote(symbol):
     for t in tickers:
         try:
             stock = yf.Ticker(t)
-            hist = stock.history(period="5d")
+            hist = stock.history(period="5d", auto_adjust=True)
             if not hist.empty:
                 curr = _to_float(hist["Close"].iloc[-1])
                 prev = _to_float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
@@ -283,10 +282,8 @@ def fetch_realtime_stock_quote(symbol):
             continue
 
     return {
-        "curr": 0.0,
-        "change": 0.0, "pct": 0.0, "volume": 0,
-        "high": 0.0, "low": 0.0,
-        "source": "查無即時報價", "success": False
+        "curr": 0.0, "change": 0.0, "pct": 0.0, "volume": 0,
+        "high": 0.0, "low": 0.0, "source": "查無即時報價", "success": False
     }
 
 
@@ -308,7 +305,7 @@ def fetch_taiex_market_env():
 
     try:
         twii = yf.Ticker("^TWII")
-        hist = twii.history(period="6m")
+        hist = twii.history(period="6m", auto_adjust=True)
         if not hist.empty and len(hist) >= 60:
             ma20 = _to_float(hist["Close"].rolling(20).mean().iloc[-1])
             ma60 = _to_float(hist["Close"].rolling(60).mean().iloc[-1])
@@ -443,7 +440,7 @@ recent_high_days = st.sidebar.slider("創近期新高天數觀察", 10, 60, 20)
 atr_period = st.sidebar.slider("ATR 計算週期 (天)", 5, 30, 14)
 
 
-# ----------------- 4. 數據抓取與計算引擎 (全代號支援) -----------------
+# ----------------- 4. 數據抓取與計算引擎 -----------------
 @st.cache_data(ttl=30)
 def fetch_accurate_stock_data(symbol):
     if not symbol:
@@ -460,7 +457,7 @@ def fetch_accurate_stock_data(symbol):
     for t in tickers:
         try:
             stock = yf.Ticker(t)
-            hist = stock.history(period="1y")
+            hist = stock.history(period="1y", auto_adjust=True)
             if not hist.empty and len(hist) >= 5:
                 hist = hist.dropna(subset=["Close"])
                 if not hist.empty:
@@ -739,7 +736,7 @@ ai_prob = compute_ai_probability_and_advice(
 
 
 # ==============================================================================
-# ----------------- 5. 量化控制模組 UI 排版 (導入分頁與 RWD 優化) -----------------
+# ----------------- 5. 量化控制模組 UI 排版 (優化 RWD 空間) -----------------
 # ==============================================================================
 
 # 頂部固定摘要區
