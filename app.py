@@ -1,4 +1,4 @@
-# ----------------- 完整專業終端升級版 - 全代號支援與分頁 RWD 優化版 (已修復 NaN 轉整數與 AI 同步問題) -----------------
+# ----------------- 完整專業終端升級版 - 全代號支援與分頁 RWD 優化版 (已修復數據即時性與手機遮擋) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -10,7 +10,7 @@ import streamlit as st
 import yfinance as yf
 import time
 
-# ----------------- 1. 頁面配置與 CSS 樣式 (含 RWD 行動裝置優化) -----------------
+# ----------------- 1. 頁面配置與 CSS 樣式 (含 RWD 行動裝置遮擋修正與文字對比度優化) -----------------
 st.set_page_config(
     page_title="AI 股市量化決策控制台 (專業終端版)",
     layout="wide",
@@ -19,22 +19,22 @@ st.set_page_config(
 
 st.markdown(
     """<style>
-.stApp { background-color: #0b0e14; color: #e0e6ed; }
+.stApp { background-color: #0b0e14; color: #f1f5f9; }
 
 .block-container { 
-    padding-top: 1.5rem !important; 
+    padding-top: 1.2rem !important; 
     padding-bottom: 2rem !important; 
-    padding-left: 1.5rem !important; 
-    padding-right: 1.5rem !important; 
+    padding-left: 1.2rem !important; 
+    padding-right: 1.2rem !important; 
 }
 
-.card-header { font-size: 0.95rem; font-weight: bold; color: #8b9bb4; margin-bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.card-header-badge { background-color: #1e2638; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; font-weight: bold; letter-spacing: 0.5px; border: 1px solid #334155; }
+.card-header { font-size: 0.95rem; font-weight: bold; color: #cbd5e1; margin-bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.card-header-badge { background-color: #1e293b; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; font-weight: bold; letter-spacing: 0.5px; border: 1px solid #475569; }
 
-/* 頂部資訊列 */
+/* 頂部資訊列 (已修正手機端遮擋與對比度) */
 .top-header { 
-    background-color: #12161f; 
-    border-bottom: 1px solid #232a36; 
+    background-color: #121824; 
+    border-bottom: 1px solid #334155; 
     padding: 14px 18px; 
     border-radius: 8px; 
     margin-bottom: 16px; 
@@ -43,32 +43,32 @@ st.markdown(
 .header-title-box { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 220px; }
 .header-stats-box { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
 
-.symbol-title { font-size: clamp(1.2rem, 2vw, 1.8rem); font-weight: 800; color: #ffffff; line-height: 1.2; }
-.price-large { font-size: clamp(1.3rem, 2vw, 1.8rem); font-weight: 800; line-height: 1.2; }
-.up-red { color: #ff4d4d; }
+.symbol-title { font-size: clamp(1.2rem, 2vw, 1.8rem); font-weight: 800; color: #ffffff; line-height: 1.3; }
+.price-large { font-size: clamp(1.3rem, 2vw, 1.8rem); font-weight: 800; line-height: 1.3; }
+.up-red { color: #ff5252; }
 .down-green { color: #00e676; }
 
 /* 側邊欄卡片 */
-.market-card { background: linear-gradient(135deg, #151b26 0%, #10141d 100%); border: 1px solid #2a3447; border-radius: 8px; padding: 12px; margin-bottom: 12px; width: 100%; }
-.market-title { font-size: 0.85rem; font-weight: bold; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
+.market-card { background: linear-gradient(135deg, #151b26 0%, #10141d 100%); border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 12px; width: 100%; }
+.market-title { font-size: 0.85rem; font-weight: bold; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
 .market-price { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
 
 /* 市場環境側邊欄卡片樣式 */
-.env-sidebar-card { background: #121621; border: 1px solid #232d3f; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; width: 100%; }
+.env-sidebar-card { background: #121824; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; width: 100%; }
 .env-status-badge { font-size: 0.85rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; width: 100%; text-align: center; margin-top: 6px; }
-.badge-bull { background-color: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; }
-.badge-neutral { background-color: rgba(255, 204, 0, 0.15); color: #ffcc00; border: 1px solid #ffcc00; }
-.badge-bear { background-color: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid #ff4d4d; }
+.badge-bull { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; }
+.badge-neutral { background-color: rgba(255, 204, 0, 0.2); color: #ffcc00; border: 1px solid #ffcc00; }
+.badge-bear { background-color: rgba(255, 82, 82, 0.2); color: #ff5252; border: 1px solid #ff5252; }
 
 /* 買進建議判定徽章 */
-.badge-buy-green { background-color: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
-.badge-buy-yellow { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
-.badge-buy-red { background-color: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
+.badge-buy-green { background-color: rgba(0, 230, 118, 0.25); color: #00e676; border: 1px solid #00e676; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
+.badge-buy-yellow { background-color: rgba(245, 158, 11, 0.25); color: #f59e0b; border: 1px solid #f59e0b; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
+.badge-buy-red { background-color: rgba(255, 82, 82, 0.25); color: #ff5252; border: 1px solid #ff5252; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: block; width: 100%; text-align: center; }
 
 /* 主頁分區塊樣式 */
 .main-section {
-    background: #0d1117;
-    border: 1px solid #21262d;
+    background: #0f141f;
+    border: 1px solid #30363d;
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 20px;
@@ -86,20 +86,20 @@ st.markdown(
     gap: 8px;
 }
 
-/* 行動裝置 RWD 優化 */
+/* 行動裝置 RWD 完美優化 */
 @media (max-width: 768px) {
-    .block-container { padding: 0.8rem !important; }
-    .header-container { flex-direction: column; align-items: flex-start; }
-    .header-stats-box { width: 100%; justify-content: space-between; gap: 10px; }
-    .symbol-title { font-size: 1.2rem; }
-    .price-large { font-size: 1.2rem; }
+    .block-container { padding: 0.6rem !important; }
+    .header-container { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .header-stats-box { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .symbol-title { font-size: 1.1rem; }
+    .price-large { font-size: 1.3rem; }
 }
 </style>""",
     unsafe_allow_html=True,
 )
 
 
-# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 -----------------
+# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (修復即時性) -----------------
 _HTTP = requests.Session()
 _HTTP.headers.update({
     "User-Agent": (
@@ -245,7 +245,7 @@ def fetch_realtime_index_and_futures():
     return tse, _fetch_taifex_txf()
 
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def fetch_realtime_stock_quote(symbol):
     symbol = str(symbol).strip().upper()
     
@@ -389,7 +389,7 @@ def render_sidebar_market_fragment():
         <div style="font-size:0.85rem; font-weight:bold;" class="{tse_class}">
             {tse_sign}{tse_data['change']:,.2f} ({tse_sign}{tse_data['pct']:.2f}%)
         </div>
-        <div style="font-size:0.68rem; color:#64748b; margin-top:4px;">來源：{tse_data.get('source','')}</div>
+        <div style="font-size:0.68rem; color:#94a3b8; margin-top:4px;">來源：{tse_data.get('source','')}</div>
     </div>
     """,
         unsafe_allow_html=True,
@@ -403,8 +403,8 @@ st.sidebar.markdown(
     f"""
 <div class="env-sidebar-card">
     <div style="color:#ffffff; font-weight:bold; margin-bottom:6px; font-size:0.88rem;">📊 大盤多空環境評估</div>
-    <div style="color:#cbd5e1; margin-bottom:8px; line-height:1.3;">{env_data['env_desc']}</div>
-    <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.75rem; margin-bottom:6px;">
+    <div style="color:#e2e8f0; margin-bottom:8px; line-height:1.3;">{env_data['env_desc']}</div>
+    <div style="display:flex; justify-content:space-between; color:#cbd5e1; font-size:0.75rem; margin-bottom:6px;">
         <span>環境評分: <strong style="color:#38bdf8;">{env_data['score']}/6</strong></span>
         <span>均線結構: <strong>{'多頭' if env_data['cond1'] else '空頭'}</strong></span>
     </div>
@@ -444,7 +444,7 @@ atr_period = st.sidebar.slider("ATR 計算週期 (天)", 5, 30, 14)
 
 
 # ----------------- 4. 數據抓取與計算引擎 (全代號支援) -----------------
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def fetch_accurate_stock_data(symbol):
     if not symbol:
         symbol = "2330"
@@ -462,14 +462,12 @@ def fetch_accurate_stock_data(symbol):
             stock = yf.Ticker(t)
             hist = stock.history(period="1y")
             if not hist.empty and len(hist) >= 5:
-                # 確保清洗 NaN 避免後續運算異常
                 hist = hist.dropna(subset=["Close"])
                 if not hist.empty:
                     return hist[["Open", "High", "Low", "Close", "Volume"]], f"{t} (Yahoo Finance)"
         except Exception:
             continue
 
-    # 萬一查無資料時的安全備援模擬數據
     base_p = 150.0
     dates = pd.date_range(end=datetime.now(), periods=180, freq="B")
     np.random.seed(sum([ord(c) for c in symbol if c.isalnum()]))
@@ -596,10 +594,10 @@ def run_mlp_tracker(df):
 
     if mlp_score >= 75:
         status = "🔥 強勢主力鎖碼建倉"
-        signal_color = "#ff4d4d"
+        signal_color = "#ff5252"
     elif mlp_score >= 50:
         status = "⚖️ 主力洗盤震盪籌碼"
-        signal_color = "#ffaa00"
+        signal_color = "#ffcc00"
     else:
         status = "❄️ 主力調節籌碼偏空"
         signal_color = "#00e676"
@@ -707,20 +705,20 @@ def compute_ai_probability_and_advice(df, curr_price, mlp_score, market_score, m
 
     if combined_up_prob >= 62.0:
         ai_signal = "🚀 強勢多頭攻擊 (偏多操作)"
-        signal_color = "#ff4d4d"
-        bg_color = "rgba(255, 77, 77, 0.15)"
+        signal_color = "#ff5252"
+        bg_color = "rgba(255, 82, 82, 0.2)"
         action_advice = "【建議操作：偏多布局 / 突破追價】AI 模型與主力籌碼偏多，可於回檔支撐分批建倉。"
         position_advice = "建議倉位：60% ~ 80%"
     elif combined_up_prob >= 48.0:
         ai_signal = "⚖️ 區間震盪整理 (謹慎買進)"
         signal_color = "#f59e0b"
-        bg_color = "rgba(245, 158, 11, 0.15)"
+        bg_color = "rgba(245, 158, 11, 0.2)"
         action_advice = "【建議操作：觀望或低買高賣】多空膠著，待突破壓力區再行加碼。"
         position_advice = "建議倉位：30% ~ 50%"
     else:
         ai_signal = "❄️ 空頭修正探底 (嚴格防守)"
         signal_color = "#00e676"
-        bg_color = "rgba(0, 230, 118, 0.15)"
+        bg_color = "rgba(0, 230, 118, 0.2)"
         action_advice = "【建議操作：多單減碼 / 嚴格停損】修正機率較高，建議提高現金比率。"
         position_advice = "建議倉位：0% ~ 20%"
 
@@ -741,7 +739,7 @@ ai_prob = compute_ai_probability_and_advice(
 
 
 # ==============================================================================
-# ----------------- 5. 量化控制模組 UI 排版 (導入分頁優化 RWD) -----------------
+# ----------------- 5. 量化控制模組 UI 排版 (導入分頁與 RWD 優化) -----------------
 # ==============================================================================
 
 # 頂部固定摘要區
@@ -755,24 +753,24 @@ st.markdown(
         <div class="header-title-box">
             <span class="card-header-badge">MODULE 01</span>
             <span class="symbol-title">📌 {input_symbol} 即時行情控制台</span>
-            <span style="font-size:0.85rem; color:#94a3b8; background:#1e293b; padding:2px 8px; border-radius:4px;">{matched_ticker}</span>
+            <span style="font-size:0.85rem; color:#e2e8f0; background:#1e293b; padding:2px 8px; border-radius:4px; border:1px solid #475569;">{matched_ticker}</span>
         </div>
         <div class="header-stats-box">
             <div>
-                <span style="font-size:0.8rem; color:#94a3b8; display:block;">當前股價</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block;">當前股價</span>
                 <span class="price-large {price_class}">${curr_p:,.2f}</span>
             </div>
             <div>
-                <span style="font-size:0.8rem; color:#94a3b8; display:block;">今日漲跌</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block;">今日漲跌</span>
                 <span style="font-size:1.2rem; font-weight:bold;" class="{price_class}">{sign_symbol}{change_val:,.2f} ({sign_symbol}{change_pct:.2f}%)</span>
             </div>
             <div>
-                <span style="font-size:0.8rem; color:#94a3b8; display:block;">今日成交量</span>
-                <span style="font-size:1.1rem; font-weight:bold; color:#f8fafc;">{vol/1000:,.0f} 張</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block;">今日成交量</span>
+                <span style="font-size:1.1rem; font-weight:bold; color:#ffffff;">{vol/1000:,.0f} 張</span>
             </div>
             <div>
-                <span style="font-size:0.8rem; color:#94a3b8; display:block;">最高 / 最低</span>
-                <span style="font-size:0.95rem; font-weight:bold; color:#cbd5e1;">${high_p:,.1f} / ${low_p:,.1f}</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block;">最高 / 最低</span>
+                <span style="font-size:0.95rem; font-weight:bold; color:#f1f5f9;">${high_p:,.1f} / ${low_p:,.1f}</span>
             </div>
         </div>
     </div>
@@ -794,8 +792,8 @@ with tab1:
     st.markdown('<div class="main-section"><div class="main-section-title">🌐 即時行情與 AI 綜合預測導航 (AI NAVIGATOR)</div>', unsafe_allow_html=True)
     st.markdown(
         f"""
-    <div style="background:#111827; border:1px solid #232f45; border-radius:8px; padding:16px; margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #1f2937; padding-bottom:8px; flex-wrap:wrap; gap:8px;">
+    <div style="background:#131a29; border:1px solid #334155; border-radius:8px; padding:16px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #334155; padding-bottom:8px; flex-wrap:wrap; gap:8px;">
             <div style="font-size:1.05rem; font-weight:bold; color:#ffffff; display:flex; align-items:center; gap:6px;">
                 <span class="card-header-badge">AI NAVIGATOR 升級版</span>
                 <span>🤖 AI 多空漲跌機率預測與深度運算導航</span>
@@ -805,21 +803,21 @@ with tab1:
             </div>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
-            <div style="flex:1 1 300px; background:#1e293b; padding:14px; border-radius:8px; border:1px solid #334155;">
+            <div style="flex:1 1 300px; background:#1e293b; padding:14px; border-radius:8px; border:1px solid #475569;">
                 <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-                    <span style="font-size:0.9rem; color:#ff4d4d; font-weight:bold;">📈 AI 看多率：{ai_prob['prob_up']}%</span>
+                    <span style="font-size:0.9rem; color:#ff5252; font-weight:bold;">📈 AI 看多率：{ai_prob['prob_up']}%</span>
                     <span style="font-size:0.9rem; color:#00e676; font-weight:bold;">📉 AI 看空率：{ai_prob['prob_down']}%</span>
                 </div>
                 <div style="background-color:#00e676; height:14px; border-radius:7px; overflow:hidden; display:flex; border:1px solid #0f172a; width:100%;">
-                    <div style="background-color:#ff4d4d; width:{ai_prob['prob_up']}%; height:100%;"></div>
+                    <div style="background-color:#ff5252; width:{ai_prob['prob_up']}%; height:100%;"></div>
                 </div>
             </div>
-            <div style="flex:2 1 350px; background:#182030; padding:14px; border-radius:8px; border-left:4px solid {ai_prob['color']};">
+            <div style="flex:2 1 350px; background:#182234; padding:14px; border-radius:8px; border-left:4px solid {ai_prob['color']}; border: 1px solid #334155;">
                 <div style="font-size:0.95rem; font-weight:bold; color:#ffffff; margin-bottom:6px;">💡 AI 量化深度運算導航指南</div>
-                <div style="font-size:0.88rem; color:#d1d5db; line-height:1.5; margin-bottom:10px;">{ai_prob['advice']}</div>
+                <div style="font-size:0.88rem; color:#e2e8f0; line-height:1.5; margin-bottom:10px;">{ai_prob['advice']}</div>
                 <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:0.8rem;">
-                    <span style="background:#0f172a; padding:4px 10px; border-radius:4px; color:#f59e0b; border:1px solid #334155; font-weight:bold;">⚖️ {ai_prob['position']}</span>
-                    <span style="background:#0f172a; padding:4px 10px; border-radius:4px; color:#38bdf8; border:1px solid #334155;">🎯 關鍵支撐: ${ai_dec['support']:.1f} / 壓力: ${ai_dec['resistance']:.1f}</span>
+                    <span style="background:#0f172a; padding:4px 10px; border-radius:4px; color:#f59e0b; border:1px solid #475569; font-weight:bold;">⚖️ {ai_prob['position']}</span>
+                    <span style="background:#0f172a; padding:4px 10px; border-radius:4px; color:#38bdf8; border:1px solid #475569;">🎯 關鍵支撐: ${ai_dec['support']:.1f} / 壓力: ${ai_dec['resistance']:.1f}</span>
                 </div>
             </div>
         </div>
@@ -832,13 +830,13 @@ with tab1:
     with col3:
         st.markdown(
             f"""
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:8px; padding:14px; height:100%;">
+        <div style="background:#131824; border:1px solid #334155; border-radius:8px; padding:14px; height:100%;">
             <div class="card-header"><span class="card-header-badge">MODULE 03</span> 🧠 MLP-AI 神經網路主力籌碼追蹤器</div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
                 <span style="font-size:1.8rem; font-weight:800; color:{mlp_res['color']}">{mlp_res['score']} <span style="font-size:1rem;">分</span></span>
-                <span style="font-size:0.95rem; font-weight:bold; color:{mlp_res['color']}; background:#1a2332; padding:4px 10px; border-radius:6px;">{mlp_res['status']}</span>
+                <span style="font-size:0.95rem; font-weight:bold; color:{mlp_res['color']}; background:#1e293b; padding:4px 10px; border-radius:6px; border:1px solid #475569;">{mlp_res['status']}</span>
             </div>
-            <div style="margin-top:10px; font-size:0.82rem; color:#94a3b8;">
+            <div style="margin-top:10px; font-size:0.82rem; color:#cbd5e1; line-height:1.4;">
                 五維特徵包含：近期收益動態、量能放大比率 ({mlp_res['vol_ratio']}x)、高低位階分位 ({mlp_res['pos_ratio']}%) 及波動度特徵。
             </div>
         </div>
@@ -848,12 +846,12 @@ with tab1:
     with col4:
         st.markdown(
             f"""
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:8px; padding:14px; height:100%;">
+        <div style="background:#131824; border:1px solid #334155; border-radius:8px; padding:14px; height:100%;">
             <div class="card-header"><span class="card-header-badge">MODULE 04</span> 💡 AI 戰略導航與型態評估</div>
             <div style="margin-top:8px;">
                 <div style="font-size:1.1rem; font-weight:bold; color:#38bdf8;">{ai_dec['state']}</div>
-                <div style="font-size:0.85rem; color:#cbd5e1; margin-top:6px; line-height:1.4;">{ai_dec['advice']}</div>
-                <div style="margin-top:8px; font-size:0.8rem; color:#94a3b8;">建議持有時間：<strong style="color:#f59e0b;">{ai_dec['hold_days']}</strong></div>
+                <div style="font-size:0.85rem; color:#e2e8f0; margin-top:6px; line-height:1.4;">{ai_dec['advice']}</div>
+                <div style="margin-top:8px; font-size:0.8rem; color:#cbd5e1;">建議持有時間：<strong style="color:#f59e0b;">{ai_dec['hold_days']}</strong></div>
             </div>
         </div>
         """,
@@ -922,14 +920,14 @@ with tab2:
         st.markdown('<div style="font-size:0.95rem; font-weight:bold; color:#38bdf8; margin-bottom:8px;">🎯 AI 試算判定與戰術評估</div>', unsafe_allow_html=True)
         st.markdown(
             f"""
-        <div style="background:#131a29; border:1px solid #23324a; border-radius:8px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="background:#131a29; border:1px solid #334155; border-radius:8px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div style="flex:1 1 200px;">
-                <span style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">AI 買進許可評定 (動態運算)</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block; margin-bottom:4px;">AI 買進許可評定 (動態運算)</span>
                 <div class="{buy_badge_class}">{buy_badge_text}</div>
             </div>
             <div style="text-align:right; flex:1 1 140px;">
-                <span style="font-size:0.8rem; color:#94a3b8; display:block;">預想價位 AI 綜合買進勝率</span>
-                <span style="font-size:1.8rem; font-weight:800; color:{'#ff4d4d' if sim_win_rate>=60 else ('#f59e0b' if sim_win_rate>=45 else '#00e676')};">{sim_win_rate}%</span>
+                <span style="font-size:0.8rem; color:#cbd5e1; display:block;">預想價位 AI 綜合買進勝率</span>
+                <span style="font-size:1.8rem; font-weight:800; color:{'#ff5252' if sim_win_rate>=60 else ('#f59e0b' if sim_win_rate>=45 else '#00e676')};">{sim_win_rate}%</span>
             </div>
         </div>
         """,
@@ -939,22 +937,22 @@ with tab2:
         st.markdown(
             f"""
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:12px;">
-            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #26334a;">
-                <div style="font-size:0.78rem; color:#94a3b8;">最佳建議掛單買進區間</div>
+            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #334155;">
+                <div style="font-size:0.78rem; color:#cbd5e1;">最佳建議掛單買進區間</div>
                 <div style="font-size:1.05rem; font-weight:bold; color:#38bdf8; margin-top:2px;">
                     ${min(screen_res['ma20'], curr_p*0.985):.1f} ~ ${curr_p:.1f}
                 </div>
             </div>
-            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #26334a;">
-                <div style="font-size:0.78rem; color:#94a3b8;">目標獲利價 (+2.5x ATR)</div>
-                <div style="font-size:1.05rem; font-weight:bold; color:#ff4d4d; margin-top:2px;">${sim_target_p:.1f}</div>
+            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #334155;">
+                <div style="font-size:0.78rem; color:#cbd5e1;">目標獲利價 (+2.5x ATR)</div>
+                <div style="font-size:1.05rem; font-weight:bold; color:#ff5252; margin-top:2px;">${sim_target_p:.1f}</div>
             </div>
-            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #26334a;">
-                <div style="font-size:0.78rem; color:#94a3b8;">防守停損價 (-1.5x ATR)</div>
+            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #334155;">
+                <div style="font-size:0.78rem; color:#cbd5e1;">防守停損價 (-1.5x ATR)</div>
                 <div style="font-size:1.05rem; font-weight:bold; color:#00e676; margin-top:2px;">${sim_stop_p:.1f}</div>
             </div>
-            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #26334a;">
-                <div style="font-size:0.78rem; color:#94a3b8;">風報比 (Risk-Reward)</div>
+            <div style="background:#161d2a; padding:10px; border-radius:6px; border:1px solid #334155;">
+                <div style="font-size:0.78rem; color:#cbd5e1;">風報比 (Risk-Reward)</div>
                 <div style="font-size:1.05rem; font-weight:bold; color:#f59e0b; margin-top:2px;">1 : {sim_rr_ratio}</div>
             </div>
         </div>
@@ -964,9 +962,9 @@ with tab2:
 
         st.markdown(
             f"""
-        <div style="background:#121824; border:1px solid #202b3c; border-radius:6px; padding:10px 14px; font-size:0.85rem; margin-bottom:12px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="background:#131824; border:1px solid #334155; border-radius:6px; padding:10px 14px; font-size:0.85rem; margin-bottom:12px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
             <div>所需總資金: <strong style="color:#ffffff;">${total_budget_yuan:,.0f} 元</strong> (<span style="color:#38bdf8;">約 {total_budget_wan:.2f} 萬</span>)</div>
-            <div>預期最大獲利: <strong style="color:#ff4d4d;">+${max_gain_yuan:,.0f} 元</strong></div>
+            <div>預期最大獲利: <strong style="color:#ff5252;">+${max_gain_yuan:,.0f} 元</strong></div>
             <div>最大風險損失: <strong style="color:#00e676;">-${max_loss_yuan:,.0f} 元</strong></div>
         </div>
         """,
@@ -987,11 +985,11 @@ with tab3:
         fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df["Close"].rolling(20).mean(), line=dict(color="#f59e0b", width=1.5), name="MA20"), row=1, col=1)
         fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df["Close"].rolling(60).mean(), line=dict(color="#a855f7", width=1.5), name="MA60"), row=1, col=1)
 
-    colors_vol = ["#ff4d4d" if c >= o else "#00e676" for c, o in zip(hist_df["Close"], hist_df["Open"])]
+    colors_vol = ["#ff5252" if c >= o else "#00e676" for c, o in zip(hist_df["Close"], hist_df["Open"])]
     fig.add_trace(go.Bar(x=hist_df.index, y=hist_df["Volume"] / 1000, marker_color=colors_vol, name="成交量 (張)"), row=2, col=1)
     fig.add_trace(go.Scatter(x=hist_df.index, y=screen_res["rsi_series"], line=dict(color="#ec4899", width=1.5), name="RSI (14)"), row=3, col=1)
 
-    fig.update_layout(height=550, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False, showlegend=True)
+    fig.update_layout(height=550, template="plotly_dark", paper_bgcolor="#131824", plot_bgcolor="#131824", margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False, showlegend=True)
     st.plotly_chart(fig, use_container_width=True)
 
     col11, col12 = st.columns(2)
@@ -1002,18 +1000,18 @@ with tab3:
         future_dates = [hist_df.index[-1] + timedelta(days=i) for i in range(1, forecast_days + 1)]
         fig_pred.add_trace(go.Scatter(x=[hist_df.index[-1]] + future_dates, y=[curr_p] + list(mc_res["mean"][1:]), name="AI預測走勢", line=dict(color="#f59e0b", width=2.5, dash="dash")))
         fig_pred.add_hline(y=ai_dec["support"], line_dash="dash", line_color="#00e676", annotation_text="AI 支撐")
-        fig_pred.add_hline(y=ai_dec["resistance"], line_dash="dash", line_color="#ff4d4d", annotation_text="AI 壓力")
-        fig_pred.update_layout(height=280, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
+        fig_pred.add_hline(y=ai_dec["resistance"], line_dash="dash", line_color="#ff5252", annotation_text="AI 壓力")
+        fig_pred.update_layout(height=280, template="plotly_dark", paper_bgcolor="#131824", plot_bgcolor="#131824", margin=dict(l=10, r=10, t=20, b=10))
         st.plotly_chart(fig_pred, use_container_width=True)
 
     with col12:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 12</span> 📈 蒙地卡羅多路徑預測</div>', unsafe_allow_html=True)
         fig_mc = go.Figure()
         fut_dates = [hist_df.index[-1] + timedelta(days=i) for i in range(len(mc_res["days"]))]
-        fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["upper"], line=dict(color="#ff4d4d", dash="dot"), name="上軌"))
+        fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["upper"], line=dict(color="#ff5252", dash="dot"), name="上軌"))
         fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["mean"], line=dict(color="#f59e0b", width=2), name="中軸"))
         fig_mc.add_trace(go.Scatter(x=fut_dates, y=mc_res["lower"], line=dict(color="#00e676", dash="dot"), name="下軌"))
-        fig_mc.update_layout(height=280, template="plotly_dark", paper_bgcolor="#121621", plot_bgcolor="#121621", margin=dict(l=10, r=10, t=20, b=10))
+        fig_mc.update_layout(height=280, template="plotly_dark", paper_bgcolor="#131824", plot_bgcolor="#131824", margin=dict(l=10, r=10, t=20, b=10))
         st.plotly_chart(fig_mc, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1038,7 +1036,7 @@ with tab4:
         for title_name, flag in conds:
             icon = "🟢" if flag else "🔴"
             st.markdown(
-                f"<div style='display:flex; justify-content:space-between; padding:4px 8px; background:#121621; margin-bottom:4px; border-radius:4px; font-size:0.85rem;'><span>{title_name}</span><span>{icon}</span></div>",
+                f"<div style='display:flex; justify-content:space-between; padding:5px 10px; background:#131824; margin-bottom:4px; border-radius:4px; border:1px solid #334155; font-size:0.85rem;'><span>{title_name}</span><span>{icon}</span></div>",
                 unsafe_allow_html=True,
             )
 
@@ -1048,10 +1046,10 @@ with tab4:
         signal_status = "🔥 強烈買進 (訊號完全符合)" if pass_count >= 8 else ("🟡 觀望或分批布局" if pass_count >= 5 else "🔴 嚴禁做多 (條件不符)")
         st.markdown(
             f"""
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:8px; padding:16px; margin-bottom:12px;">
+        <div style="background:#131824; border:1px solid #334155; border-radius:8px; padding:16px; margin-bottom:12px;">
             <div style="font-size:1.2rem; font-weight:bold; color:#ffffff; margin-bottom:10px;">量化條件通過數: <span style="color:#38bdf8;">{pass_count} / 10</span></div>
-            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:12px; color:{'#ff4d4d' if pass_count>=8 else ('#f59e0b' if pass_count>=5 else '#00e676')};">{signal_status}</div>
-            <div style="font-size:0.85rem; color:#94a3b8; line-height:1.5;">依據多維量化燈號客觀評估，去除主觀情緒干擾。</div>
+            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:12px; color:{'#ff5252' if pass_count>=8 else ('#f59e0b' if pass_count>=5 else '#00e676')};">{signal_status}</div>
+            <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.5;">依據多維量化燈號客觀評估，去除主觀情緒干擾。</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -1065,11 +1063,11 @@ with tab4:
         rr_ratio = round(reward_val / risk_val, 2) if risk_val > 0 else 0
         st.markdown(
             f"""
-        <div style="background:#121621; border:1px solid #232d3f; border-radius:8px; padding:12px; font-size:0.85rem;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>建倉參考價:</span><strong>${curr_p:.1f}</strong></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>目標獲利價 (+3.0x ATR):</span><strong style="color:#ff4d4d;">${target_p:.1f}</strong></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>防守停損價 (-1.5x ATR):</span><strong style="color:#00e676;">${stop_p:.1f}</strong></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px; border-top:1px solid #232d3f; padding-top:4px;"><span>風險報酬比 (R/R):</span><strong style="color:#38bdf8;">1 : {rr_ratio}</strong></div>
+        <div style="background:#131824; border:1px solid #334155; border-radius:8px; padding:12px; font-size:0.85rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>建倉參考價:</span><strong>${curr_p:.1f}</strong></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>目標獲利價 (+3.0x ATR):</span><strong style="color:#ff5252;">${target_p:.1f}</strong></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>防守停損價 (-1.5x ATR):</span><strong style="color:#00e676;">${stop_p:.1f}</strong></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px; border-top:1px solid #334155; padding-top:6px;"><span>風險報酬比 (R/R):</span><strong style="color:#38bdf8;">1 : {rr_ratio}</strong></div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -1082,15 +1080,15 @@ with tab5:
 
     with col13:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 13</span> ⚠️ 隔日沖與短線風險</div>', unsafe_allow_html=True)
-        st.markdown("""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">隔日沖賣壓: <strong style="color:#f59e0b;">中等風險</strong></div><div style="color:#94a3b8;">建議於開盤 30 分鐘內觀察爆量衝高狀況。</div></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">隔日沖賣壓: <strong style="color:#f59e0b;">中等風險</strong></div><div style="color:#cbd5e1;">建議於開盤 30 分鐘內觀察爆量衝高狀況。</div></div>""", unsafe_allow_html=True)
 
     with col14:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 14</span> 🏛️ 三大法人與籌碼動向</div>', unsafe_allow_html=True)
-        st.markdown("""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">外資近3日: <strong style="color:#ff4d4d;">連續買超</strong></div><div style="margin-bottom:6px;">主力籌碼集中度: <strong>+8.4% (鎖碼中)</strong></div></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">外資近3日: <strong style="color:#ff5252;">連續買超</strong></div><div style="margin-bottom:6px;">主力籌碼集中度: <strong style="color:#ffffff;">+8.4% (鎖碼中)</strong></div></div>""", unsafe_allow_html=True)
 
     with col15:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 15</span> 🧱 支撐與壓力關卡解析</div>', unsafe_allow_html=True)
-        st.markdown(f"""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">強壓力位: <strong style="color:#ff4d4d;">${screen_res['past_high']:.1f}</strong></div><div style="margin-bottom:6px;">近端支撐: <strong style="color:#00e676;">${screen_res['support_20']:.1f}</strong></div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">強壓力位: <strong style="color:#ff5252;">${screen_res['past_high']:.1f}</strong></div><div style="margin-bottom:6px;">近端支撐: <strong style="color:#00e676;">${screen_res['support_20']:.1f}</strong></div></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col16, col17, col18 = st.columns(3)
@@ -1102,15 +1100,15 @@ with tab5:
             current_val = curr_p * holding_shares
             pnl_val = current_val - total_cost
             pnl_pct = (pnl_val / total_cost) * 100 if total_cost > 0 else 0.0
-            pnl_color = "#ff4d4d" if pnl_val >= 0 else "#00e676"
+            pnl_color = "#ff5252" if pnl_val >= 0 else "#00e676"
             pnl_sign = "+" if pnl_val >= 0 else ""
-            st.markdown(f"""<div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.85rem;"><div style="margin-bottom:4px;">成本/現價: <strong>${buy_price:.1f} / ${curr_p:.1f}</strong></div><div style="margin-bottom:4px;">未實現損益: <strong style="color:{pnl_color};">{pnl_sign}${pnl_val:,.0f}</strong></div><div>報酬率: <strong style="color:{pnl_color};">{pnl_sign}{pnl_pct:.2f}%</strong></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="background:#131824; border:1px solid #334155; border-radius:6px; padding:12px; font-size:0.85rem;"><div style="margin-bottom:4px;">成本/現價: <strong>${buy_price:.1f} / ${curr_p:.1f}</strong></div><div style="margin-bottom:4px;">未實現損益: <strong style="color:{pnl_color};">{pnl_sign}${pnl_val:,.0f}</strong></div><div>報酬率: <strong style="color:{pnl_color};">{pnl_sign}{pnl_pct:.2f}%</strong></div></div>""", unsafe_allow_html=True)
         else:
-            st.markdown('<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.85rem; color:#94a3b8;">尚未啟用個人庫存資料。</div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.85rem; color:#cbd5e1;">尚未啟用個人庫存資料。</div>', unsafe_allow_html=True)
 
     with col17:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 17</span> 🔔 風險警示與智慧動態通知</div>', unsafe_allow_html=True)
-        st.markdown(f"""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常。</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常。</div></div>""", unsafe_allow_html=True)
 
     with col18:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
@@ -1122,7 +1120,7 @@ with tab5:
                 sugg = "目前處於虧損狀態，請嚴格執行預設停損價位防守。"
             else:
                 sugg = "持股震盪整理中，建議續抱並觀察月線支撐力道。"
-            st.markdown(f"""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem; color:#d1d5db;">{sugg}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem; color:#f1f5f9; line-height:1.4;">{sugg}</div>""", unsafe_allow_html=True)
         else:
-            st.markdown("""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem; color:#94a3b8;">未輸入持股庫存，無特定持股建議。</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem; color:#cbd5e1;">未輸入持股庫存，無特定持股建議。</div>""", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
