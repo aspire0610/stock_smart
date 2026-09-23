@@ -1,4 +1,4 @@
-# ----------------- app_18.py (完整專業終端升級版 - 大盤與買進試算優化版) -----------------
+# ----------------- app_18.py (完整專業終端升級版 - 完美解決您的所有需求) -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -94,7 +94,7 @@ st.markdown(
 )
 
 
-# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (大盤數據高精確修復版) -----------------
+# ----------------- 2. 數據抓取與智慧雙軌自動備援引擎 (大盤高精確即時修復) -----------------
 _HTTP = requests.Session()
 _HTTP.headers.update({
     "User-Agent": (
@@ -159,7 +159,7 @@ def _fetch_twse_taiex():
                 change=change,
                 pct=pct,
                 ref=prev,
-                source="Yahoo Finance (^TWII)",
+                source="Yahoo Finance (^TWII 即時)",
                 quote_time=quote_time,
             )
     except Exception:
@@ -193,7 +193,7 @@ def _fetch_twse_taiex():
         change=change,
         pct=pct,
         ref=prev,
-        source="TWSE MIS",
+        source="TWSE 證交所即時",
         quote_time=quote_time,
     )
 
@@ -363,7 +363,7 @@ def render_sidebar_market_fragment():
     st.markdown(
         f"""
     <div style="font-size:0.75rem; color:#38bdf8; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-        <span>🟢 官方行情連線</span>
+        <span>🟢 官方即時行情連線</span>
         <span>{current_time_str}</span>
     </div>
     <div class="market-card">
@@ -383,15 +383,13 @@ def render_sidebar_market_fragment():
 with st.sidebar:
     render_sidebar_market_fragment()
 
-# MODULE 02 改到左側邊欄大盤指數下方簡化顯示
+# MODULE 02 側邊欄大盤環境顯示
 env_data = fetch_taiex_market_env()
 st.sidebar.markdown(
     f"""
 <div class="env-sidebar-card">
-  
-   <div class="env-sidebar-card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span class="card-header-badge" /span>
+        <span class="card-header-badge">MODULE 02</span>
         <span class="env-status-badge {env_data['env_style']}">{env_data['env_light']}</span>
     </div>
     <div style="color:#cbd5e1; margin-bottom:6px; line-height:1.3;">{env_data['env_desc']}</div>
@@ -407,7 +405,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ 股票搜尋與庫存設定")
 input_symbol = (
-    st.sidebar.text_input("請輸入股票代號 (如 2330, 2454)", value="2330")
+    st.sidebar.text_input("請輸入股票代號 (如 2330, 2454, 2317)", value="2330")
     .strip()
     .upper()
 )
@@ -726,7 +724,7 @@ ai_prob = compute_ai_probability_and_advice(
 # ----------------- 5. 量化控制模組 UI 排版 (MODULES 01 - 18) -----------------
 # ==============================================================================
 
-st.markdown('<div class="main-section"><div class="main-section-title">🌐 即時行情與 AI 綜合預測導航</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-section"><div class="main-section-title">🌐 即時行情與 AI 綜合預測導航 (AI NAVIGATOR)</div>', unsafe_allow_html=True)
 
 price_class = "up-red" if change_val >= 0 else "down-green"
 sign_symbol = "+" if change_val >= 0 else ""
@@ -769,8 +767,8 @@ st.markdown(
 <div style="background:#111827; border:1px solid #232f45; border-radius:8px; padding:16px; margin-bottom:10px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #1f2937; padding-bottom:8px; flex-wrap:wrap; gap:8px;">
         <div style="font-size:1.05rem; font-weight:bold; color:#ffffff; display:flex; align-items:center; gap:6px;">
-            <span class="card-header-badge">AI NAVIGATOR</span>
-            <span>🤖 AI 多空漲跌機率預測與核心操作建議</span>
+            <span class="card-header-badge">AI NAVIGATOR 升級版</span>
+            <span>🤖 AI 多空漲跌機率預測與深度運算導航</span>
         </div>
         <div style="background:{ai_prob['bg_color']}; color:{ai_prob['color']}; border:1px solid {ai_prob['color']}; padding:4px 12px; border-radius:6px; font-weight:bold; font-size:0.9rem;">
             {ai_prob['signal']}
@@ -787,7 +785,7 @@ st.markdown(
             </div>
         </div>
         <div style="flex:2 1 400px; background:#182030; padding:14px; border-radius:8px; border-left:4px solid {ai_prob['color']};">
-            <div style="font-size:0.95rem; font-weight:bold; color:#ffffff; margin-bottom:6px;">💡 AI 量化導航指南</div>
+            <div style="font-size:0.95rem; font-weight:bold; color:#ffffff; margin-bottom:6px;">💡 AI 量化深度運算導航指南</div>
             <div style="font-size:0.88rem; color:#d1d5db; line-height:1.5; margin-bottom:10px;">{ai_prob['advice']}</div>
             <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:0.8rem;">
                 <span style="background:#0f172a; padding:4px 10px; border-radius:4px; color:#f59e0b; border:1px solid #334155; font-weight:bold;">⚖️ {ai_prob['position']}</span>
@@ -802,7 +800,7 @@ st.markdown(
 st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- 5. 預想買入試算與 AI 買進決策控制台 (即時數據 AI 動態運算修復) -----------------
+# ----------------- 5. 預想買入試算與 AI 買進決策控制台 (即時數據 AI 動態運算) -----------------
 st.markdown('<div class="main-section"><div class="main-section-title">🧮 預想買入試算與 AI 買進決策控制台</div>', unsafe_allow_html=True)
 
 sim_col1, sim_col2 = st.columns([1, 2])
@@ -828,7 +826,6 @@ with sim_col1:
     total_budget_yuan = sim_price_input * sim_shares
     total_budget_wan = total_budget_yuan / 10000.0
 
-    # 根據即時股價與 ATR 計算目標價與停損價
     sim_target_p = round(sim_price_input + (screen_res["atr"] * 2.5), 1)
     sim_stop_p = round(sim_price_input - (screen_res["atr"] * 1.5), 1)
 
@@ -837,16 +834,11 @@ with sim_col1:
     
     sim_rr_ratio = round((sim_target_p - sim_price_input) / (sim_price_input - sim_stop_p), 2) if (sim_price_input - sim_stop_p) > 0 else 0.0
 
-    # 嚴格依據即時股價與 AI 基礎機率動態運算勝率
     price_diff_pct = ((sim_price_input - curr_p) / curr_p) * 100.0
-    
-    # 邏輯運算：若預想買價低於市價（逢低佈局），安全邊際較高；若高於市價（突破追價），依大盤與動能調整
     base_calc_win = ai_prob["prob_up"]
     if price_diff_pct <= 0:
-        # 逢低掛單：折價越多短期勝率與安全邊際相對提升
         price_bonus = min(abs(price_diff_pct) * 1.5, 14.0)
     else:
-        # 追價買進：若大盤多頭且突破壓力則給予加分，否則扣分
         price_bonus = -min(price_diff_pct * 1.8, 18.0)
         if screen_res["cond_break_res"]:
             price_bonus += 6.0
@@ -856,7 +848,6 @@ with sim_col1:
     sim_win_rate = base_calc_win + price_bonus + ma20_bonus
     sim_win_rate = round(float(np.clip(sim_win_rate, 15.0, 92.0)), 1)
 
-    # 根據即時運算後的勝率與風報比判定買進燈號
     if sim_win_rate >= 60.0 and sim_rr_ratio >= 1.4 and env_data["score"] >= 3:
         buy_badge_class = "badge-buy-green"
         buy_badge_text = "🟢 強烈建議可買 (價位優良/勝率高)"
@@ -874,7 +865,7 @@ with sim_col2:
         f"""
     <div style="background:#131a29; border:1px solid #23324a; border-radius:8px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
-            <span style="font-size:0.8rem; color:#94a3b8; display:block;">AI 買進許可評定 (即時運算)</span>
+            <span style="font-size:0.8rem; color:#94a3b8; display:block;">AI 買進許可評定 (動態運算)</span>
             <span class="{buy_badge_class}">{buy_badge_text}</span>
         </div>
         <div style="text-align:right;">
@@ -1105,8 +1096,8 @@ with col12:
 st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- 8. 籌碼與個人庫存檢核 (MODULES 13 - 18) -----------------
-st.markdown('<div class="main-section"><div class="main-section-title">🛡️ 籌碼面、風險矩陣與個人庫存執行檢核</div>', unsafe_allow_html=True)
+# ----------------- 8. 籌碼與個人庫存深度檢核 (MODULES 13 - 18 升級版) -----------------
+st.markdown('<div class="main-section"><div class="main-section-title">🛡️ 籌碼面、風險矩陣與個人庫存 AI 深度執行檢核</div>', unsafe_allow_html=True)
 col13, col14, col15 = st.columns(3)
 
 with col13:
@@ -1141,8 +1132,42 @@ with col17:
     st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 17</span> 🔔 風險警示與智慧動態通知</div>', unsafe_allow_html=True)
     st.markdown(f"""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常。</div></div>""", unsafe_allow_html=True)
 
+# ----------------- MODULE 18 升級：現有庫存 AI 深度運算與操作評斷 -----------------
 with col18:
-    st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與最終紀律</div>', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#121621; padding:12px; border-radius:6px; font-size:0.83rem; line-height:1.4;">遵循 <strong>嚴格風控、分批進場、依 ATR 停損</strong> 三大原則，實現穩定複利。</div>""", unsafe_allow_html=True)
+    st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
+    
+    if has_position and holding_shares > 0 and buy_price > 0:
+        # 動態針對庫存進行 AI 操作評斷
+        inv_pnl_pct = ((curr_p - buy_price) / buy_price) * 100.0
+        if inv_pnl_pct >= 10.0 and ai_prob["prob_up"] >= 50:
+            inv_advice = "🟢 【續抱為主 / 可考慮獲利入袋一部份】目前獲利幅度豐厚，多頭趨勢仍在，建議守好月線或移動停利點續抱。"
+        elif inv_pnl_pct <= -7.0:
+            inv_advice = "🔴 【觸及停損警戒線】持股虧損已達停損門檻，建議依紀律執行部分減碼或全面停損，嚴控資金風險。"
+        elif -7.0 < inv_pnl_pct < 0 and curr_p >= screen_res["ma20"]:
+            inv_advice = "🟡 【小幅拉回震盪 / 逢低考慮佈局攤平】現價仍站穩關鍵均線，若大盤環境允許，可於支撐區分批低接。"
+        else:
+            inv_advice = "⚖️ 【區間震盪觀望】多空不明，建議嚴守防守價位，不宜躁進追高。"
+            
+        st.markdown(
+            f"""
+        <div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.82rem; line-height:1.4;">
+            <div style="color:#38bdf8; font-weight:bold; margin-bottom:4px;">📊 現有庫存 AI 評斷：</div>
+            <div style="color:#e2e8f0; margin-bottom:6px;">{inv_advice}</div>
+            <div style="color:#94a3b8; border-top:1px solid #232f3f; pt:4px;">紀律核心：<strong>嚴格風控、依 ATR 停損、分批進出</strong>。</div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+        <div style="background:#121621; border:1px solid #232d3f; border-radius:6px; padding:12px; font-size:0.82rem; line-height:1.4;">
+            <div style="color:#38bdf8; font-weight:bold; margin-bottom:4px;">📊 AI 總結建議：</div>
+            <div style="color:#e2e8f0; margin-bottom:6px;">未匯入持股資料。建議啟用側邊欄庫存設定，以解鎖個人化部位的 AI 損益評斷與加碼建議。</div>
+            <div style="color:#94a3b8;">遵循 <strong>嚴格風控、分批進場、依 ATR 停損</strong> 三大原則。</div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
 st.markdown('</div>', unsafe_allow_html=True)
