@@ -1,4 +1,4 @@
-# ----------------- 完整專業終端升級版 - 元大 API (SparkAPI / PyAPI) 完整整合與分頁 RWD 優化版 -----------------
+# ----------------- 完整專業終端升級版 - 元大 API (SparkAPI / PyAPI) 純行情資安強化版 -----------------
 from datetime import datetime, timedelta
 import textwrap
 import numpy as np
@@ -32,7 +32,7 @@ except ImportError:
 
 # ----------------- 1. 頁面配置與 CSS 樣式 (徹底解決手機端遮擋與導航排版) -----------------
 st.set_page_config(
-    page_title="AI 股市量化決策控制台 (元大 API 專業終端版)",
+    page_title="AI 股市量化決策控制台 (元大行情 API 純讀取版)",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -139,9 +139,9 @@ st.markdown(
 )
 
 
-# ----------------- 2. 元大 API (SparkAPI / PyAPI) 連線管理與數據引擎 -----------------
-class YuantaClientWrapper:
-    """元大 API 客戶端包裝器 (支援 SparkAPI / PyAPI 通訊協定)"""
+# ----------------- 2. 元大行情 API (Read-Only) 連線管理與數據引擎 -----------------
+class YuantaQuoteClientWrapper:
+    """元大行情 API 客戶端包裝器 (純讀取，不具備下單功能，確保資安)"""
     def __init__(self, user_id="", password="", api_key="", secret_key="", cert_path=""):
         self.user_id = user_id
         self.password = password
@@ -153,12 +153,14 @@ class YuantaClientWrapper:
         self.connect()
 
     def connect(self):
-        if HAS_YUANTA_API:
+        if HAS_YUANTA_API and (self.api_key or self.user_id):
             try:
-                # 依據載入的元大官方 SDK 進行登入驗證
+                # 依據載入的元大 SDK 進行純行情登入驗證 (免憑證)
                 if hasattr(yuanta_lib, "SparkAPI"):
                     self.api_instance = yuanta_lib.SparkAPI(api_key=self.api_key, secret_key=self.secret_key)
-                    self.api_instance.login(user_id=self.user_id, password=self.password, cert_path=self.cert_path)
+                    # 只傳入帳號密碼進行行情服務驗證，不下單
+                    if hasattr(self.api_instance, "login"):
+                        self.api_instance.login(user_id=self.user_id, password=self.password)
                     self.is_connected = True
                 elif hasattr(yuanta_lib, "YuantaClient"):
                     self.api_instance = yuanta_lib.YuantaClient(user_id=self.user_id, password=self.password)
@@ -222,8 +224,8 @@ class YuantaClientWrapper:
 
 @st.cache_resource
 def init_yuanta_api(user_id="", password="", api_key="", secret_key="", cert_path=""):
-    """初始化元大 API (SparkAPI / PyAPI) 連線工作階段"""
-    client = YuantaClientWrapper(
+    """初始化元大行情 API 連線工作階段"""
+    client = YuantaQuoteClientWrapper(
         user_id=user_id,
         password=password,
         api_key=api_key,
@@ -273,7 +275,7 @@ def _make_quote(curr, change=None, pct=None, ref=None, source="", quote_time="")
 
 
 def _fetch_yuanta_taiex():
-    """透過元大 API 取得台股大盤加權指數即時數據"""
+    """透過元大行情 API 取得台股大盤加權指數即時數據"""
     client = st.session_state.get("yuanta_api_client")
     if client and client.is_connected:
         snapshot = client.get_market_index_snapshot("001")
@@ -291,12 +293,12 @@ def _fetch_yuanta_taiex():
                 quote_time=datetime.now().strftime("%H:%M:%S")
             )
 
-    # 安全備援模擬 (等元大 API 帳號申請完成並登入後即自動接管)
-    return _make_quote(23250.0, change=120.0, pct=0.52, ref=23130.0, source="元大 API 連線備援模擬 (申請中)", quote_time=datetime.now().strftime("%H:%M:%S"))
+    # 安全備援模擬
+    return _make_quote(23250.0, change=120.0, pct=0.52, ref=23130.0, source="元大 API 純行情備援模擬", quote_time=datetime.now().strftime("%H:%M:%S"))
 
 
 def _fetch_yuanta_txf():
-    """透過元大 API 取得台指期即時數據"""
+    """透過元大行情 API 取得台指期即時數據"""
     client = st.session_state.get("yuanta_api_client")
     if client and client.is_connected:
         snapshot = client.get_market_index_snapshot("TXF")
@@ -342,7 +344,7 @@ def fetch_realtime_stock_quote(symbol):
                 "volume": vol,
                 "high": high,
                 "low": low,
-                "source": f"元大 API 官方即時報價 ({symbol})",
+                "source": f"元大行情 API 即時報價 ({symbol})",
                 "success": True
             }
 
@@ -357,7 +359,7 @@ def fetch_realtime_stock_quote(symbol):
         "volume": 12500000,
         "high": round(curr + 2.0, 2),
         "low": round(curr - 1.5, 2),
-        "source": "元大 API 模擬報價 (憑證申請中)",
+        "source": "元大 API 純行情模擬報價",
         "success": True
     }
 
@@ -415,17 +417,26 @@ def fetch_taiex_market_env():
     return env_res
 
 
-# ----------------- 3. 側邊欄控制台面板與模組 -----------------
-st.sidebar.subheader("🔌 元大 API 登入設定")
-with st.sidebar.expander("元大 API 憑證設定 (申請完畢後輸入)", expanded=False):
-    st.caption("提示：目前處於「元大 API 備援模擬模式」，待元大審核通過後，在此輸入帳密及 Key 即可切換為元大官方實時數據。")
-    yuanta_userid_input = st.text_input("元大證券帳號 / 身分證號", type="default", value="", key="y_userid")
-    yuanta_password_input = st.text_input("交易密碼", type="password", value="", key="y_pass")
-    yuanta_apikey_input = st.text_input("API Key", type="password", value="", key="y_apikey")
-    yuanta_secret_input = st.text_input("Secret Key", type="password", value="", key="y_secret")
-    yuanta_cert_input = st.text_input("憑證路徑 / 密碼 (選填)", type="default", value="", key="y_cert")
+# ----------------- 3. 側邊欄控制台面板與資安防護模組 -----------------
+# 嘗試從環境變數 / st.secrets 安全讀取預設金鑰
+def_userid = st.secrets.get("YUANTA_USER_ID", "") if hasattr(st, "secrets") else ""
+def_apikey = st.secrets.get("YUANTA_API_KEY", "") if hasattr(st, "secrets") else ""
+def_secret = st.secrets.get("YUANTA_SECRET_KEY", "") if hasattr(st, "secrets") else ""
+
+st.sidebar.subheader("🔌 元大行情 API 設定 (純讀取安全模式)")
+with st.sidebar.expander("🔑 僅行情 API 金鑰 (免交易密碼/免憑證)", expanded=False):
+    st.caption("🔒 **資安防護**：本系統僅調用行情 API 做行情與圖表運算，**無下單功能**。無需輸入交易密碼與憑證 (.pfx)。")
+    yuanta_userid_input = st.text_input("元大帳號 / 身分證號", type="password", value=def_userid, key="y_userid")
+    yuanta_apikey_input = st.text_input("API Key", type="password", value=def_apikey, key="y_apikey")
+    yuanta_secret_input = st.text_input("Secret Key", type="password", value=def_secret, key="y_secret")
     
-    if st.button("連線元大 API"):
+    # 隱藏非必要之交易密碼與憑證輸入，降至進階選項，避免使用者曝露機密
+    with st.popover("🛡️ 進階安全備註"):
+        st.caption("若您的 API SDK 初始化時有額外必填參數可於此補齊：")
+        yuanta_password_input = st.text_input("帳戶密碼 (純行情可留空)", type="password", value="", key="y_pass")
+        yuanta_cert_input = st.text_input("憑證路徑 (純行情無需填寫)", type="password", value="", key="y_cert")
+    
+    if st.button("連線元大行情 API"):
         client = init_yuanta_api(
             user_id=yuanta_userid_input,
             password=yuanta_password_input,
@@ -435,12 +446,14 @@ with st.sidebar.expander("元大 API 憑證設定 (申請完畢後輸入)", expa
         )
         st.session_state["yuanta_api_client"] = client
         if client.is_connected:
-            st.success("🎉 元大 API 連線成功！")
+            st.success("🎉 元大行情 API 連線成功！")
         else:
-            st.info("已切換至元大 API 安全備援模擬模式 (等憑證生效後將自動升級為實時連線)。")
+            st.info("已切換至元大 API 安全備援模擬模式。")
 
 if "yuanta_api_client" not in st.session_state:
-    st.session_state["yuanta_api_client"] = init_yuanta_api()
+    st.session_state["yuanta_api_client"] = init_yuanta_api(
+        user_id=def_userid, api_key=def_apikey, secret_key=def_secret
+    )
 
 st.sidebar.subheader("🔄 即時行情數據 (獨立微刷新)")
 enable_autorefresh = st.sidebar.checkbox("開啟即時自動更新", value=True)
@@ -821,7 +834,7 @@ st.markdown(
     <div class="header-container">
         <div class="header-title-box">
             <span class="card-header-badge">MODULE 01</span>
-            <span class="symbol-title">📌 {input_symbol} 元大 API 即時行情控制台</span>
+            <span class="symbol-title">📌 {input_symbol} 元大行情 API 控制台</span>
             <span style="font-size:0.85rem; color:#e2e8f0; background:#1e293b; padding:2px 8px; border-radius:4px; border:1px solid #475569;">{matched_ticker}</span>
         </div>
         <div class="header-stats-box">
@@ -1177,7 +1190,7 @@ with tab5:
 
     with col17:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 17</span> 🔔 風險警示與智慧動態通知</div>', unsafe_allow_html=True)
-        st.markdown(f"""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常 (元大 API 連線)。</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#131824; border:1px solid #334155; padding:12px; border-radius:6px; font-size:0.83rem;"><div style="margin-bottom:6px;">ATR 波動: <strong style="color:#38bdf8;">${screen_res['atr']:.1f} ({screen_res['atr_pct']:.1f}%)</strong></div><div style="color:#00e676;">系統狀態: 穩定運行正常 (元大行情 API 連線)。</div></div>""", unsafe_allow_html=True)
 
     with col18:
         st.markdown('<div class="card-header"><span class="card-header-badge">MODULE 18</span> ⚙️ AI 量化決策總結與現有庫存操作建議</div>', unsafe_allow_html=True)
