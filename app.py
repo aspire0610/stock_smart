@@ -418,10 +418,16 @@ def fetch_taiex_market_env():
 
 
 # ----------------- 3. 側邊欄控制台面板與資安防護模組 -----------------
-# 嘗試從環境變數 / st.secrets 安全讀取預設金鑰
-def_userid = st.secrets.get("YUANTA_USER_ID", "") if hasattr(st, "secrets") else ""
-def_apikey = st.secrets.get("YUANTA_API_KEY", "") if hasattr(st, "secrets") else ""
-def_secret = st.secrets.get("YUANTA_SECRET_KEY", "") if hasattr(st, "secrets") else ""
+# 嘗試從 st.secrets 安全讀取預設金鑰（加上預設值與容錯處理，避免無 Key 時 Crash）
+def get_secret(key, default=""):
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
+def_userid = get_secret("YUANTA_USER_ID", "")
+def_apikey = get_secret("YUANTA_API_KEY", "")
+def_secret = get_secret("YUANTA_SECRET_KEY", "")
 
 st.sidebar.subheader("🔌 元大行情 API 設定 (純讀取安全模式)")
 with st.sidebar.expander("🔑 僅行情 API 金鑰 (免交易密碼/免憑證)", expanded=False):
